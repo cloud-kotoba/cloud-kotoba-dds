@@ -10,7 +10,12 @@
            :untranslated-reference {:visible-notice true :lang-attribute true}
            :future ["BCP47 locale negotiation" "RTL" "localized dates and quantities" "translation catalog coverage gate"]}
  :components
- {:language-selector {:base :jp-go-dds/language-selector
+ {:graph-workbench {:status :development :api "GRAPH_COMPONENTS.md"
+                     :source "src/cloud_kotoba_dds/graph_workbench.cljk"
+                     :host-owns [:authentication :transport :billing :readiness]
+                     :snapshot-limits {:rows 100 :nodes 40 :edges 80}
+                     :live-tenant-qualified false}
+  :language-selector {:base :jp-go-dds/language-selector
                       :preserves [:draft :route :source-content :reply-language]
                       :keys [:escape :arrow-up :arrow-down :home :end :enter]
                       :focus-return :opener}
