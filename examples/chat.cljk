@@ -1,0 +1,38 @@
+(ns examples.chat
+  (:require [cloud-kotoba-dds.chat :as chat]
+            [cloud-kotoba-dds.styles :as styles]
+            [cloud-kotoba-dds.browser :as browser]
+            [jp-go-dds.tokens :as tokens]
+            [html.core :as html]
+            ["node:fs" :as fs]))
+(def view
+  (chat/workspace {:style "height:100dvh"}
+    (chat/sidebar {:aria-label "Conversations"}
+      [:button {:id "new" :type "button"} "New chat"]
+      [:p "Component example"])
+    (chat/panel {:aria-label "Example conversation"}
+      (chat/conversation {}
+        (chat/welcome {:id "welcome"} [:h1 "What would you like to make?"])
+        (chat/message-list {:id "messages" :aria-label "Messages"}))
+      (chat/composer {:id "composer"}
+        [:label {:for "input"} "Message"]
+        (chat/prompt {:id "input" :required true :placeholder "Try a message"})
+        (chat/composer-actions {}
+          (chat/model-control {}
+            (chat/model-select {:aria-label "Model"} [{:id "demo" :label "Local demo"}]))
+          [:button {:type "submit"} "Send"])
+        [:small "Local fixture. No network generation or billing."]))))
+(def demo-script "
+const form=document.querySelector('#composer'),input=document.querySelector('#input'),list=document.querySelector('#messages');
+form.onsubmit=e=>{e.preventDefault();if(!input.value.trim())return;document.querySelector('#welcome').hidden=true;
+const view=cloudKotobaChat.createMessage({container:list,input:input.value,role:'Demo',userLabel:'You',stages:[]});
+view.output.textContent='Local reply: '+input.value;view.live.textContent='Complete';input.value='';};
+document.querySelector('#new').onclick=()=>{list.replaceChildren();document.querySelector('#welcome').hidden=false;input.focus();};
+")
+(.writeFileSync fs "examples/chat.html"
+ (str "<!doctype html>" (html/->html
+  [:html {:lang "en"}
+   [:head [:meta {:charset "utf-8"}] [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
+    [:title "Shared chat component example"]
+    [:style (str tokens/bridge-css styles/css "body{margin:0;font-family:system-ui}*{box-sizing:border-box}button{min-height:44px}")]]
+   [:body view]]) "<script>" browser/script demo-script "</script>"))
