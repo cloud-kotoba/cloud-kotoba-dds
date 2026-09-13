@@ -48,4 +48,4 @@ Playwright とブラウザを用意した環境で `node test/browser.mjs` を�
 
 ## 共通GraphDB管理画面（開発中）
 
-Graph Viewer・Ontology Inspector・データム表・Queryなどの共通部品を追加しました。[APIと接続契約](GRAPH_COMPONENTS.md)、[オフラインの見本](examples/graph.html)を参照してください。公開・本番採用は未完了です。
+Graph Viewer・Ontology Inspector・データム表・Queryなどの共通部品を追加しました。[APIと接続契約](GRAPH_COMPONENTS.md)、[オフラインの見本](examples/graph.html)を参照してください。実テナントでの認証・操作の検証は利用側で行います。

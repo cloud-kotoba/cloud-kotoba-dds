@@ -3,7 +3,7 @@
 Source: `src/cloud_kotoba_dds/graph_workbench.cljk`, extracted from
 `net-kotobase/control-plane` (`kotobase.admin-page`, base `b381cafb`).
 The source is shared; consumers must not copy the markup or browser controller.
-This change has not been published to main or qualified with a live tenant.
+Integration is verified with fixture data; live tenant operations require host qualification.
 
 ## Components
 
@@ -57,8 +57,7 @@ backup controls keep their original qualifications and limitations.
   `credentials: omit`, redirect refusal and abort-on-disconnect. Inference
   keys and Kotoba Cloud login do not automatically authorize graph access.
 
-Both consumers currently use a **graph-dev dependency override** for local
-verification. Publish and merge this library first, pin that reachable commit
+Use a **graph-dev dependency override** for local verification. Publish and merge this library first, pin that reachable commit
 in both consumers, then run their normal builds before merging or deploying
 consumers. Never pin the unpublished branch commit as a production dependency.
 The local browser fixture test is in app-kotoba-cloud's
