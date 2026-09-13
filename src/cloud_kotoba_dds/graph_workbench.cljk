@@ -227,7 +227,7 @@ window.cloudKotobaGraph={mount:function(root,host){
         var name=document.createElement('th');name.scope='row';name.textContent=db.db_name;tr.appendChild(name);
         var kind=document.createElement('td');kind.textContent=db.kind||'user';tr.appendChild(kind);
         var status=document.createElement('td');var badge=document.createElement('span');badge.className='kb-badge';badge.textContent=db.status||'active';status.appendChild(badge);tr.appendChild(status);
-        var cid=document.createElement('td');var link=document.createElement('a');link.href='/ipld/'+encodeURIComponent(db.graph||'');link.textContent=db.graph||'—';cid.appendChild(link);tr.appendChild(cid);
+        var cid=document.createElement('td');var link=document.createElement('a');link.href=host.blockHref?host.blockHref(db.graph||''):('/ipld/'+encodeURIComponent(db.graph||''));link.textContent=db.graph||'—';cid.appendChild(link);tr.appendChild(cid);
         var actions=document.createElement('td');actions.className='kb-row-actions';
         if(db.kind==='system'){var note=document.createElement('span');note.className='kb-footnote';note.textContent='Catalog only';note.title='System catalog entries are not tenant query databases.';actions.appendChild(note);}
         else if(db.status!=='tombstoned')actions.appendChild(action('Explore','use',function(){useDatabase(db.db_name);}));
@@ -266,7 +266,7 @@ window.cloudKotobaGraph={mount:function(root,host){
       var body=document.getElementById('table-view-rows'), empty=document.getElementById('table-view-empty');if(!body)return;
       body.textContent='';var shown=filtered();empty.hidden=shown.length!==0;
       for(var i=0;i<shown.length;i++){var t=triple(shown[i]),tr=document.createElement('tr');
-        for(var j=0;j<3;j++){var td=document.createElement('td'),cell=value(t[j]);if(typeof t[j]==='string'&&/^b[a-z2-7]{30,}$/.test(t[j])){var link=document.createElement('a');link.href='/ipld/'+encodeURIComponent(t[j]);link.textContent=cell;td.appendChild(link);}else{td.textContent=cell;}tr.appendChild(td);}body.appendChild(tr);
+        for(var j=0;j<3;j++){var td=document.createElement('td'),cell=value(t[j]);if(typeof t[j]==='string'&&/^b[a-z2-7]{30,}$/.test(t[j])){var link=document.createElement('a');link.href=host.blockHref?host.blockHref(t[j]):('/ipld/'+encodeURIComponent(t[j]));link.textContent=cell;td.appendChild(link);}else{td.textContent=cell;}tr.appendChild(td);}body.appendChild(tr);
       }
       set('table-visible',String(shown.length));set('table-total',String(rows.length));
       var exportButton=document.getElementById('table-export');if(exportButton)exportButton.disabled=shown.length===0;
@@ -349,7 +349,7 @@ window.cloudKotobaGraph={mount:function(root,host){
     function addHistory(){historyItems.unshift(snapshot(new Date().toLocaleTimeString()+' · '+(db.value||'database')+' · '+lang.value));historyItems=historyItems.slice(0,20);fillSelect(historySelect,historyItems,'Session history');}
     function renderCidLinks(value){
       if(!links)return;links.textContent='';var found=JSON.stringify(value).match(/b[a-z2-7]{30,}/g)||[],seen={};
-      for(var i=0;i<found.length;i++){var cid=found[i];if(seen[cid])continue;seen[cid]=1;var a=document.createElement('a');a.href='/ipld/'+encodeURIComponent(cid);a.textContent='IPLD '+cid;links.appendChild(a);}
+      for(var i=0;i<found.length;i++){var cid=found[i];if(seen[cid])continue;seen[cid]=1;var a=document.createElement('a');a.href=host.blockHref?host.blockHref(cid):('/ipld/'+encodeURIComponent(cid));a.textContent='IPLD '+cid;links.appendChild(a);}
     }
     lang.addEventListener('change',function(){edn.value=examples[lang.value]||examples.datalog;});
     run.addEventListener('click',function(){
@@ -830,7 +830,7 @@ return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].remo
         [:div {:id "pin-list" :class "kb-pin-list"}]))
      (dds/section {:title "Hash links"}
        (dds/card
-        [:p "Canonical link: " [:code {:class "kb-code"} "https://kotobase.net/ipld/{cid}"]]
+        [:p "Canonical link: " [:code {:class "kb-code"} "/ipld/{cid}"]]
         [:p {:class "kb-footnote kb-mut"} "GETはCID検証済みのimmutable bytesです。DB名はtenant内のhandleであり、graph/commitのcanonical identityはCIDです。"]))])
 
 (defn keys-panel [options]
