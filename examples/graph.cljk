@@ -1,0 +1,29 @@
+(ns examples.graph
+  "Offline component fixture. No authentication, live data, writes or billing."
+  (:require [cloud-kotoba-dds.graph-workbench :as graph]
+            [jp-go-dds.page :as page]
+            [jp-go-dds.tokens :as tokens]))
+
+(def fixture-script
+  "window.cloudKotobaGraph.mount(document.querySelector('.kb-console'),{
+  request:function(path){
+    var body=null;
+    if(path.endsWith('.usageGet'))body={tier:'OFFLINE FIXTURE',tenantDid:'did:example:fixture'};
+    else if(path.endsWith('.datomic.listDatabases'))body={databases:[{db_name:'fixture-db',status:'active',kind:'user'}]};
+    else if(path.endsWith('.datomic.q')||path.endsWith('.kg.query'))body={rows:[[1,':asset/name','example-server'],[1,':asset/owner',2],[2,':owner/name','example-owner']]};
+    else if(path.endsWith('.savedQuery.list'))body={saved_queries:[]};
+    else if(path.indexOf('/pins?')===0)body={results:[]};
+    else if(path.indexOf('/v1/audit?')===0)body={data:[]};
+    return Promise.resolve(new Response(JSON.stringify(body||{error:'Not implemented in offline fixture'}),{status:body?200:501,headers:{'content-type':'application/json'}}));
+  }
+});
+document.querySelectorAll('[data-explore-db],#q-db').forEach(function(input){input.value='fixture-db';});")
+
+(defn render [dds-css]
+  (page/->page {:title "Offline GraphDB component fixture" :lang "ja" :css dds-css
+               :dark? true :app-css (str tokens/bridge-css graph/page-css)}
+    (graph/view {:header [:aside {:role "note" :style "grid-column:1/-1"}
+                         [:strong "OFFLINE FIXTURE — テスト用データのみ"]
+                         [:p "実際の認証・保存・課金は行いません。Databaseはfixture-dbです。グラフまたはクエリの読み込みを試してください。"]]})
+    [:script graph/script]
+    [:script fixture-script]))

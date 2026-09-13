@@ -45,3 +45,7 @@ MIT。基礎CSS・部品・同梱runtimeの帰属とライセンスは`assets/LI
 ## 検証
 
 Playwright とブラウザを用意した環境で `node test/browser.mjs` を実行します。必要に応じて `PLAYWRIGHT_MODULE` にインストール先、`BROWSER_CHANNEL=chrome` を指定できます。320・390・768・1440pxの横幅、設定の開閉、Escape、下書き保持を確認します。
+
+## 共通GraphDB管理画面（開発中）
+
+Graph Viewer・Ontology Inspector・データム表・Queryなどの共通部品を追加しました。[APIと接続契約](GRAPH_COMPONENTS.md)、[オフラインの見本](examples/graph.html)を参照してください。公開・本番採用は未完了です。
