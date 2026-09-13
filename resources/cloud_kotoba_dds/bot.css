@@ -1,0 +1,31 @@
+/* Component identity survives themes and operational state. */
+.ck-bot{--ck-bot-color:var(--color-key-600);--ck-bot-ink:var(--color-neutral-solid-gray-900);display:inline-flex;position:relative;width:2rem;height:2rem;flex:none;vertical-align:middle;background:transparent;isolation:isolate}
+.ck-bot>svg{width:100%;height:100%;overflow:visible;transform-origin:50% 80%;animation:ck-bot-breathe 5.6s ease-in-out var(--ck-bot-phase,0s) infinite}
+.ck-bot__body{fill:var(--ck-bot-color)}.ck-bot__mark{fill:none;stroke:var(--color-neutral-white);stroke-width:3;stroke-linecap:round;opacity:.32}
+.ck-bot__white{fill:var(--color-neutral-white)}.ck-bot__pupil{fill:var(--ck-bot-ink)}
+.ck-bot__eye{transform-box:fill-box;transform-origin:center;animation:ck-bot-blink 7s ease-in-out var(--ck-bot-phase,0s) infinite}
+.ck-bot__mouth,.ck-bot__rest-eyes,.ck-bot__brows{fill:none;stroke:var(--ck-bot-ink);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.ck-bot__rest-eyes,.ck-bot__brows,.ck-bot__attention{display:none}
+.ck-bot__attention{fill:var(--ck-bot-ink);stroke:var(--color-neutral-white);stroke-width:3;paint-order:stroke;font-weight:800}
+.ck-bot[data-color='clay']{--ck-bot-color:var(--color-primitive-orange-800)}
+.ck-bot[data-color='red']{--ck-bot-color:var(--color-primitive-red-600)}
+.ck-bot[data-color='orange']{--ck-bot-color:var(--color-primitive-orange-600)}
+.ck-bot[data-color='amber']{--ck-bot-color:var(--color-primitive-yellow-700)}
+.ck-bot[data-color='green']{--ck-bot-color:var(--color-primitive-green-600)}
+.ck-bot[data-color='teal']{--ck-bot-color:var(--color-primitive-cyan-700)}
+.ck-bot[data-color='violet']{--ck-bot-color:var(--color-primitive-purple-600)}
+.ck-bot[data-color='pink']{--ck-bot-color:var(--color-primitive-magenta-600)}
+.ck-bot[data-color='slate']{--ck-bot-color:var(--color-neutral-solid-gray-600)}
+.ck-bot[data-status='working']>svg{animation:ck-bot-work 2.4s ease-in-out var(--ck-bot-phase,0s) infinite}
+.ck-bot[data-status='working'] .ck-bot__brows{display:block}
+.ck-bot[data-status='waiting-approval'] .ck-bot__attention,.ck-bot[data-status='waiting-connection'] .ck-bot__attention{display:block}
+.ck-bot[data-status='blocked'] .ck-bot__brows{display:block;transform:translateY(2px)}
+.ck-bot[data-status='blocked']>svg{animation:none}
+.ck-bot[data-status='disabled'] .ck-bot__eyes{display:none}.ck-bot[data-status='disabled'] .ck-bot__rest-eyes{display:block}
+.ck-bot[data-status='disabled']{filter:saturate(.35)}
+.ck-bot[data-status='disabled']>svg,.ck-bot[data-status='disabled'] *,.ck-bot[data-status='unknown']>svg,.ck-bot[data-status='unknown'] *,.ck-bot[data-motion='off']>svg,.ck-bot[data-motion='off'] *{animation:none}
+@keyframes ck-bot-breathe{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-1%) scale(1.015)}}
+@keyframes ck-bot-blink{0%,43%,47%,100%{transform:scaleY(1)}44%,46%{transform:scaleY(.12)}}
+@keyframes ck-bot-work{0%,100%{transform:rotate(-3deg) translateY(0)}50%{transform:rotate(3deg) translateY(-3%)}}
+@media(prefers-reduced-motion:reduce){.ck-bot>svg,.ck-bot *{animation:none!important;transition:none!important}}
+@media(forced-colors:active){.ck-bot__body{fill:Canvas;stroke:CanvasText;stroke-width:2}.ck-bot__white{fill:CanvasText}.ck-bot__pupil{fill:Canvas}.ck-bot__mouth,.ck-bot__rest-eyes,.ck-bot__brows{stroke:CanvasText}}
