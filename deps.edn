@@ -1,4 +1,4 @@
-{:paths ["src"]
+{:paths ["src" "resources"]
  :deps {}
  :aliases {:example {:extra-paths ["."]
                      :extra-deps {io.github.kotoba-lang/jp-go-digital-design-system {:git/sha "dc4602dc17bce8f6e9ba038e92b3e95fcc411b49"}
