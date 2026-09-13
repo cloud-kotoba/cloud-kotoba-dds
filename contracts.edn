@@ -1,8 +1,8 @@
 {:system/id :cloud-kotoba-dds
- :system/version "0.2.0-study"
- :system/status :design-and-interactive-prototype
+ :system/version "0.3.0-alpha"
+ :system/status :reusable-chat-components-and-study
  :foundation :jp-go-dds
- :production-adoption :not-started
+ :production-adoption {:chat-components ["network-awai/cloud-murakumo-site"] :other-study-components :not-started}
  :locales {:implemented ["ja" "en"]
            :ui-independent-of [:source-language :reply-language]
            :selection-order [:explicit-url :saved-user-choice :default]
