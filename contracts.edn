@@ -1,0 +1,47 @@
+{:system/id :cloud-kotoba-dds
+ :system/version "0.2.0-study"
+ :system/status :design-and-interactive-prototype
+ :foundation :jp-go-dds
+ :production-adoption :not-started
+ :locales {:implemented ["ja" "en"]
+           :ui-independent-of [:source-language :reply-language]
+           :selection-order [:explicit-url :saved-user-choice :default]
+           :default "ja"
+           :untranslated-reference {:visible-notice true :lang-attribute true}
+           :future ["BCP47 locale negotiation" "RTL" "localized dates and quantities" "translation catalog coverage gate"]}
+ :components
+ {:language-selector {:base :jp-go-dds/language-selector
+                      :preserves [:draft :route :source-content :reply-language]
+                      :keys [:escape :arrow-up :arrow-down :home :end :enter]
+                      :focus-return :opener}
+  :account-entry {:variants [:rail :compact-header :catalog]
+                  :action :open-settings-sheet :accessible-name-required true}
+  :settings-sheet {:element :dialog :modality :modal
+                   :compact :bottom-sheet :expanded :center-dialog
+                   :initial-focus :close-button :escape :close-and-return-focus
+                   :backdrop-click :no-action
+                   :gesture-only-actions false}
+  :composer {:states [:idle :invalid :offline :running :complete]
+             :enter :newline :meta-or-ctrl-enter :try-sample
+             :ime-composition :never-submit
+             :draft-storage :explicit-opt-in :default-persistence false
+             :pending-edit-policy :preserve-newer-edits
+             :empty-submit :inline-message-and-focus
+             :duplicate-submit :blocked-while-running
+             :effects :local-simulation-only}
+  :navigation {:views [:workspace :content :components :behavior]
+               :addressing :fragment :current :aria-current-page
+               :focus-target :view-container :full-document-navigation false}
+  :run-status {:announcement :polite-atomic
+               :sound-default :off :simulation-label-required true}
+  :content-link {:content-id :cidv1-raw-sha256 :ui-locale-changes-content false
+                 :authority :none :network-resolution :not-implemented}
+  :motion {:press-ms 100 :reveal-ms 180 :panel-ms 240
+            :reduced-motion [:system :user] :reduced-behavior :immediate}}
+ :touch {:target-css-px 44 :coarse-pointer-target-css-px 48
+         :touch-action :manipulation :drag-only-actions false
+         :scroll-capture false :native-selection-preserved true
+         :native-zoom-preserved true :native-edge-back-preserved true}
+ :verification {:automated-viewport-targets [320 360 390 768 1280]
+                :device-required [:ios-safari-keyboard :android-chrome-keyboard :voiceover :talkback]
+                :not-certified [:rtl :all-colors-contrast :real-device-ime :haptics]}}
