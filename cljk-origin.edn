@@ -5,5 +5,6 @@
  :origins
  {"src/cloud_kotoba_dds/browser.cljk" ".cljc"
   "src/cloud_kotoba_dds/chat.cljk" ".cljc"
+  "src/cloud_kotoba_dds/catalog.cljk" ".cljc"
   "src/cloud_kotoba_dds/console.cljk" ".cljc"
   "src/cloud_kotoba_dds/styles.cljk" ".cljc"}}
