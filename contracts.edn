@@ -20,7 +20,21 @@
                       :keys [:escape :arrow-up :arrow-down :home :end :enter]
                       :focus-return :opener}
   :account-entry {:variants [:rail :compact-header :catalog]
-                  :action :open-settings-sheet :accessible-name-required true}
+                  :action :open-settings-sheet :accessible-name-required true
+                  ;; the reusable chip + floating menu (0.1.0): both states
+                  ;; emitted server-side, the host fills and reveals
+                  :component :shell/account-entry
+                  :menu :floating-popover
+                  :menu-keys [:escape] :menu-outside-click :close
+                  :focus-return :chip}
+  :shell {:status :reusable :api "SHELL_COMPONENTS.md"
+          :source "src/cloud_kotoba_dds/shell.cljk"
+          :parts [:topbar :account-entry]
+          :layers {:topbar :sticky-top :account-menu :floating-popover}
+          :markers {:topbar "data-chrome=top" :account-menu "data-chrome=float"}
+          :measured-by :shinkansen.audit/chrome-layers
+          :host-owns [:section-facts :chips :session-facts :sign-out :rail-geometry]
+          :production-adoption ["kotoba-lang/app-kotoba-cloud"]}
   :settings-sheet {:element :dialog :modality :modal
                    :compact :bottom-sheet :expanded :center-dialog
                    :initial-focus :close-button :escape :close-and-return-focus

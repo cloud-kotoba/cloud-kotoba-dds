@@ -1,0 +1,52 @@
+(ns examples.shell
+  "Generates examples/shell.html — the shell chrome fixture test/shell.mjs
+   drives: a rail with the account entry at its foot, a sticky top bar, a
+   long page. The rail's own layout (fixed column ≥ 64rem, chip row below)
+   is APP css here on purpose: the pattern owns the two layers, not the
+   app's rail geometry."
+  (:require [cloud-kotoba-dds.shell :as shell]
+            [jp-go-dds.tokens :as tokens]
+            [html.core :as html]
+            ["node:fs" :as fs]))
+
+(def app-css
+  (str "body{margin:0;font-family:system-ui;color:var(--hig-color-label);background:var(--hig-color-system-background)}*{box-sizing:border-box}"
+       ".rail{position:fixed;inset-block:0;inset-inline-start:0;inline-size:15rem;display:flex;flex-direction:column;gap:4px;padding:12px;background:var(--hig-color-secondary-system-background);border-inline-end:1px solid var(--hig-color-separator);z-index:30}"
+       ".rail>*{flex-shrink:0}.rail a{display:flex;align-items:center;min-height:2rem;padding:4px 8px;color:inherit;text-decoration:none}"
+       ".rail__foot{margin-top:auto;border-top:1px solid var(--hig-color-separator);padding-top:8px}"
+       "body:has(.rail){padding-inline-start:15rem}main{padding:0 20px 40px}main p{max-width:40rem}"
+       "@media(max-width:64rem){body:has(.rail){padding-inline-start:0;padding-block-start:3.25rem}.rail{inset-block:0 auto;inset-inline:0;inline-size:auto;block-size:3.25rem;flex-direction:row;align-items:center;overflow-x:auto}.rail__foot{position:sticky;inset-inline-end:0;margin-top:0;margin-inline-start:auto;border-top:none;padding-top:0;background:var(--hig-color-secondary-system-background)}}"))
+
+(def view
+  (list
+   [:main {:id "main"}
+    (shell/topbar {:section (shell/section-label "MAIN" "Docs")
+                   :actions [[:a {:class "dads-button" :data-type "outline" :data-size "sm" :href "#"} "Docs"]
+                             [:span {:id "credit"} "$0.00"]]})
+    [:h1 "Shell chrome example"]
+    (for [i (range 40)]
+      [:p {:id (str "p" i)} "Paragraph " i " — the top bar above stays put while this scrolls; the account menu at the rail's foot floats over the rail instead of pushing it apart."])]
+   [:nav {:class "rail" :aria-label "Rail"}
+    [:a {:href "#"} "Docs"] [:a {:href "#"} "Apps"] [:a {:href "#"} "Models"]
+    [:a {:href "#" :id "last-item"} "Billing"]
+    [:div {:class "rail__foot"}
+     (shell/account-entry {:id "account" :variant :rail
+                           :sign-in {:href "#sign-in" :label "Sign in"}
+                           :menu-label "Account menu"
+                           :items [{:href "#account" :label "Account"}
+                                   {:href "#billing" :label "Billing"}
+                                   {:id "sign-out" :action "sign-out" :label "Sign out"}]})]]))
+
+(def demo-script
+  "cloudKotobaShell.hydrateSession(document.getElementById('account'),{name:'kotoba-f342c',workspace:'Personal'});
+document.getElementById('sign-out').onclick=()=>{document.getElementById('credit').textContent='signed out';};")
+
+(.writeFileSync fs "examples/shell.html"
+  (str "<!doctype html>"
+       (html/->html
+        [:html {:lang "en"}
+         [:head [:meta {:charset "utf-8"}] [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
+          [:title "Shell chrome example"]
+          [:style (str tokens/bridge-css shell/css app-css)]]
+         [:body view]])
+       "<script>" shell/script demo-script "</script>"))
