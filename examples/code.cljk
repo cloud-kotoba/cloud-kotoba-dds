@@ -1,0 +1,70 @@
+(ns examples.code
+  "Generates examples/code.html — the code-block fixture test/code.mjs
+   drives: every language the tokenizer knows, a wrapping block and a
+   scrolling one, the copy control, inline code, on the real DADS palette
+   with jp-go-dds's dark layer so both surfaces can be measured. Reads
+   the vendored dds.css from the jp-go-dds checkout: $JP_GO_DDS or the
+   west sibling ../jp-go-digital-design-system."
+  (:require [cloud-kotoba-dds.code :as code]
+            [jp-go-dds.page :as page]
+            [jp-go-dds.tokens :as tokens]
+            [jp-go-dds.theme-toggle :as theme-toggle]
+            ["node:fs" :as fs]
+            ["node:path" :as path]))
+
+(def dds-root
+  (or (.-JP_GO_DDS (.-env js/process))
+      (path/resolve "../jp-go-digital-design-system")))
+
+(def dds-css
+  (let [f (path/join dds-root "resources" "jp_go_dds" "dds.css")]
+    (when-not (.existsSync fs f)
+      (throw (ex-info (str "vendored dds.css not found: " f " — set JP_GO_DDS to the jp-go-dds checkout") {})))
+    (.readFileSync fs f "utf8")))
+
+(def app-css
+  "body{margin:0;padding:var(--hig-spacing-5);font-family:var(--hig-font-text);color:var(--hig-color-label);background:var(--hig-color-system-background)}main{max-width:44rem;margin-inline:auto}h1{font-size:var(--hig-text-title1-font-size)}h2{margin-block:var(--hig-spacing-6) var(--hig-spacing-3)}p{max-width:40rem;line-height:1.7}.toolbar{display:flex;justify-content:flex-end}")
+
+(def curl
+  (str "curl -s -X POST https://api.kotoba.cloud/v1/research/jobs \\\n"
+       "  -H \"Authorization: Bearer $KOTOBA_API_TOKEN\" \\\n"
+       "  -H \"content-type: application/json\" \\\n"
+       "  -H \"idempotency-key: 11111111-1111-4111-8111-111111111111\" \\\n"
+       "  -d '{\"model\":\"qwen3.8-flash-next-whitehacker\",\"task\":\"code-review\",\"scopeId\":\"owned\",\n"
+       "        \"max_tokens\":256,\"messages\":[{\"role\":\"user\",\n"
+       "        \"content\":\"Review this login function for auth bypasses.\"}]}'\n\n"
+       "# poll until status is succeeded (queued/running -> 202)\n"
+       "curl -s \"https://api.kotoba.cloud/v1/research/job?jobId=<uuid>\" \\\n"
+       "  -H \"Authorization: Bearer $KOTOBA_API_TOKEN\""))
+
+(def view
+  [:main {:id "main"}
+   [:div {:class "toolbar"} theme-toggle/control]
+   [:h1 "Code block example"]
+   [:p "Every token is coloured server-side; the copy control appears once the runtime is loaded; "
+    (code/inline "kc_pat_<your-token>") " is inline code."]
+   [:h2 "Shell — wrapping (the default)"]
+   (code/block {:lang :bash :id "wrap" :copy-label "Copy" :copied-label "Copied"} curl)
+   [:h2 "Shell — scrolling, a title"]
+   (code/block {:lang :bash :id "scroll" :wrap? false :title "Terminal"}
+               (str "export KOTOBA_API_TOKEN=\"kc_pat_<your-token>\"\n"
+                    "claude -p \"Reply with exactly: OK\" 2>&1 | tee /tmp/a-very-long-line-that-does-not-wrap-because-this-block-scrolls-instead-of-wrapping-its-lines.log"))
+   [:h2 "JSON"]
+   (code/block {:lang :json :id "json"}
+               "{\n  \"tools\": [],          // accepted\n  \"stream\": true,       // rejected -> 400\n  \"max_tokens\": 256,\n  \"model\": null\n}")
+   [:h2 "HTTP"]
+   (code/block {:lang :http :id "http" :copy? false}
+               "401 sign-in-required          // no cookie session, no/invalid PAT\n403 verification-required     // identity verification missing/expired\n429 free-quota-exhausted      // 50 requests/day used up")
+   [:h2 "Clojure"]
+   (code/block {:lang :clojure :id "clj"}
+               "(ns app.core\n  (:require [cloud-kotoba-dds.code :as code]))\n\n(defn view [src]\n  ;; one block, tokens coloured server-side\n  (code/block {:lang :bash :wrap? true} src))")
+   [:h2 "Plain text"]
+   (code/block {:lang :text :id "text" :copy? false} "no language, no colours, still a block")])
+
+(.writeFileSync fs "examples/code.html"
+  (page/->page {:title "Code block example" :lang "en"
+                :css dds-css :dark? true
+                :app-css (str tokens/bridge-css theme-toggle/css code/css app-css)
+                :head [[:script theme-toggle/script]]}
+               view
+               [:script code/script]))

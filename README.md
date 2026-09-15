@@ -34,6 +34,18 @@ shinkansen.audit の `:chrome-layers` marker（`data-chrome=top` / `float`）を
 層の rule は測られます。[API と組み込み方](SHELL_COMPONENTS.md)、[動く見本](examples/shell.html)、
 検証は `node test/shell.mjs`。kotoba.cloud の console が最初の host です。
 
+## Code block（読んで、コピーする）
+
+**Code component 0.1.0**（`cloud-kotoba-dds.code`）は、言語ラベル・コピー操作・
+**サーバー側で色付けした token** を持つ code block です。highlight.js 等の runtime は
+使いません（`script-src 'self'` の host は読めず、色が runtime で届く文書は自己完結
+ではない）。色は DADS の ramp から light / dark 両面で AA（≥ 4.5:1）になる段を選び、
+jp-go-dds の dark 反転にそのまま乗ります。既定は折り返し（測った失敗は行の切れ）、
+`:wrap? false` で横スクロール。[API と組み込み方](CODE_COMPONENTS.md)、
+[動く見本](examples/code.html)、検証は `node test/code.mjs`（390 / 1440 × light / dark）。
+`<pre data-lang>` と `<code class="language-x">` は shinkansen.audit の `:code-language`
+marker です。kotoba.cloud/docs が最初の host です。
+
 ## Bot の顔と動き
 
 専用の **Bot component 0.1.0** は、ID による顔の特徴、保存済みの色と形、状態ごとの動き、動きを減らす設定への対応を提供します。[API と組み込み方](BOT_COMPONENTS.md)、[動く見本](examples/bots.html)を参照してください。

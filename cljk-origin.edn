@@ -9,4 +9,6 @@
   "src/cloud_kotoba_dds/graph_workbench.cljk" ".cljc"
   "src/cloud_kotoba_dds/catalog.cljk" ".cljc"
   "src/cloud_kotoba_dds/console.cljk" ".cljc"
-  "src/cloud_kotoba_dds/styles.cljk" ".cljc"}}
+  "src/cloud_kotoba_dds/styles.cljk" ".cljc"
+  "src/cloud_kotoba_dds/shell.cljk" ".cljc"
+  "src/cloud_kotoba_dds/code.cljk" ".cljc"}}
