@@ -8,6 +8,7 @@
 (def css
   "Token-contract CSS for the console pattern. App CSS may extend it; never
    re-derive the state colors or the row geometry."
+  (str
   ".ck-console{display:grid;gap:var(--hig-spacing-5)}"
   ".ck-console__panel{border:1px solid var(--hig-color-separator);border-radius:var(--hig-radius-sm);padding:var(--hig-spacing-5);background:var(--hig-color-system-background)}"
   ".ck-console__panel h2{margin-bottom:var(--hig-spacing-2)}"
@@ -19,7 +20,7 @@
   ".ck-console__value[data-state=error]{color:var(--hig-color-error,var(--hig-color-label));font-weight:700}"
   ".ck-console__value[data-state=empty]{color:var(--hig-color-secondary-label)}"
   ".ck-console__value[data-state=ok]{font-weight:700;color:var(--hig-color-tint)}"
-  ".ck-console__note{color:var(--hig-color-secondary-label);font-size:var(--hig-text-caption1-font-size)}")
+  ".ck-console__note{color:var(--hig-color-secondary-label);font-size:var(--hig-text-caption1-font-size)}"))
 
 (defn panel
   "A titled console card. title is the one heading inside it; id lets the
