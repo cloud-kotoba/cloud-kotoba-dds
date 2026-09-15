@@ -45,9 +45,11 @@
                  id (assoc :id id))]
         (concat
          [(into [:nav {:aria-label "カタログ"}]
-                (or nav
-                    [[:a {:href "/ja/"} "← ホーム"]
-                     [:a {:href "/ja/security/"} "セキュリティ公開データ"]]))
+                (cond
+                  (nil? nav) [[:a {:href "/ja/"} "← ホーム"]
+                              [:a {:href "/ja/security/"} "セキュリティ公開データ"]]
+                  (and (vector? nav) (keyword? (first nav))) [nav]
+                  :else nav))
           [(if embedded? :h2 :h1) title]
           [:p {:class "ck-catalog__lead"} lead]]
          body)))
