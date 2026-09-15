@@ -26,6 +26,14 @@ python3 -m http.server 8766 --bind 127.0.0.1
 
 **0.3.0-alpha** の再利用可能な会話コンポーネントを追加しました。会話一覧・メッセージ・入力欄・モデル選択・共通スタイルとDOM描画を提供し、Murakumoで利用しています。[組み込み方とAPI](CHAT_COMPONENTS.md)、[最小の組み込み例](examples/chat.html)を参照してください。認証・生成API・料金・履歴保存は利用側から接続します。
 
+## Shell の chrome（top bar・account entry）
+
+**Shell component 0.1.0**（`cloud-kotoba-dds.shell`）は、スクロールしても動かない top bar と、
+rail の足元から**浮く**（rail を押し広げない）account menu を提供します。両方が
+shinkansen.audit の `:chrome-layers` marker（`data-chrome=top` / `float`）を持ち、
+層の rule は測られます。[API と組み込み方](SHELL_COMPONENTS.md)、[動く見本](examples/shell.html)、
+検証は `node test/shell.mjs`。kotoba.cloud の console が最初の host です。
+
 ## Bot の顔と動き
 
 専用の **Bot component 0.1.0** は、ID による顔の特徴、保存済みの色と形、状態ごとの動き、動きを減らす設定への対応を提供します。[API と組み込み方](BOT_COMPONENTS.md)、[動く見本](examples/bots.html)を参照してください。
