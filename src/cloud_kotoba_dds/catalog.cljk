@@ -20,7 +20,7 @@
   ".ck-catalog__tools input{flex:1;min-width:11rem}"
   ".ck-catalog__tabs{display:flex;gap:var(--hig-spacing-2);margin:var(--hig-spacing-4) 0 var(--hig-spacing-3);flex-wrap:wrap}"
   ".ck-catalog__tab{padding:var(--hig-spacing-2) var(--hig-spacing-4);border:1px solid var(--hig-color-separator);border-radius:var(--hig-radius-capsule,999px);background:var(--hig-color-system-background);font:inherit;cursor:pointer;min-height:2.75rem}"
-  ".ck-catalog__tab[aria-selected=true]{border-color:var(--hig-color-tint);color:var(--hig-color-tint);font-weight:700}"
+  ".ck-catalog__tab[aria-selected=true],.ck-catalog__tab[aria-pressed=true]{border-color:var(--hig-color-tint);color:var(--hig-color-tint);font-weight:700}"
   ".ck-catalog__grid{display:grid;grid-template-columns:minmax(15rem,1fr) minmax(17.5rem,1.4fr);gap:var(--hig-spacing-5)}"
   "@media(max-width:47.5rem){.ck-catalog__grid{grid-template-columns:1fr}}"
   ".ck-catalog__list{display:grid;gap:var(--hig-spacing-2);align-content:start}"
@@ -40,13 +40,14 @@
 (defn page
   "Catalog shell: breadcrumb nav, heading (embedded? renders h2 for hash
    views), lead paragraph, optional callout, status line, then body."
-  [{:keys [title lead embedded? id]} & body]
+  [{:keys [title lead embedded? id nav]} & body]
   (into [:main (cond-> {:class "ck-catalog"}
                  id (assoc :id id))]
         (concat
-         [[:nav {:aria-label "カタログ"}
-           [:a {:href "/ja/"} "← ホーム"]
-           [:a {:href "/ja/security/"} "セキュリティ公開データ"]]
+         [(into [:nav {:aria-label "カタログ"}]
+                (or nav
+                    [[:a {:href "/ja/"} "← ホーム"]
+                     [:a {:href "/ja/security/"} "セキュリティ公開データ"]]))]
           [(if embedded? :h2 :h1) title]
           [:p {:class "ck-catalog__lead"} lead]]
          body)))
