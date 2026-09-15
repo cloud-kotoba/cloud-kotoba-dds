@@ -35,6 +35,18 @@
           :measured-by :shinkansen.audit/chrome-layers
           :host-owns [:section-facts :chips :session-facts :sign-out :rail-geometry]
           :production-adoption ["kotoba-lang/app-kotoba-cloud"]}
+  :code-block {:status :reusable :api "CODE_COMPONENTS.md"
+               :source "src/cloud_kotoba_dds/code.cljk"
+               :parts [:block :inline]
+               :languages [:bash :json :clojure :http :text]
+               :highlighting :server-side-tokens
+               :overflow {:default :wrap :option :scroll-focusable}
+               :markers {:pre "data-lang" :code "class=language-<x>"}
+               :measured-by [:shinkansen.audit/code-language :shinkansen.audit/pre-overflow]
+               :contrast {:floor 4.5 :surfaces [:light :dark] :verified "test/code.mjs"}
+               :copy {:control :hidden-until-runtime :reads :pre-text-content :announce :aria-live}
+               :host-owns [:labels :script-file :which-blocks-scroll]
+               :production-adoption ["kotoba-lang/app-kotoba-cloud"]}
   :settings-sheet {:element :dialog :modality :modal
                    :compact :bottom-sheet :expanded :center-dialog
                    :initial-focus :close-button :escape :close-and-return-focus
