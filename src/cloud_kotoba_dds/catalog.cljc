@@ -39,12 +39,16 @@
 
 (defn page
   "Catalog shell: breadcrumb nav, heading (embedded? renders h2 for hash
-   views), lead paragraph, optional callout, status line, then body."
-  [{:keys [title lead embedded? id nav]} & body]
+   views), lead paragraph, optional callout, status line, then body.
+   :nav-label names the nav landmark in the document's language (default
+   カタログ — the pattern's first hosts were Japanese; an English document
+   passes \"Catalog\", measured 2026-09-15 on kotoba.cloud/security/ where
+   it was the one Japanese word left in the English emit)."
+  [{:keys [title lead embedded? id nav nav-label] :or {nav-label "カタログ"}} & body]
   (into [:main (cond-> {:class "ck-catalog"}
                  id (assoc :id id))]
         (concat
-         [(into [:nav {:aria-label "カタログ"}]
+         [(into [:nav {:aria-label nav-label}]
                 (or nav
                     [[:a {:href "/ja/"} "← ホーム"]
                      [:a {:href "/ja/security/"} "セキュリティ公開データ"]]))
