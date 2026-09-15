@@ -52,6 +52,20 @@
           [:p {:class "ck-catalog__lead"} lead]]
          body)))
 
+
+(defn breadcrumb
+  "DADS breadcrumb. items are [:label href-or-nil] pairs; the last item is
+   the current page (no link)."
+  [label items]
+  [:nav {:class "dads-breadcrumb"}
+   [:span {:class "dads-breadcrumb__label"} label]
+   [:ol {:class "dads-breadcrumb__list"}
+    (for [[i [text href]] (map-indexed vector items)]
+      [:li {:class "dads-breadcrumb__item"}
+       (if (or href (= i (dec (count items))))
+         text
+         [:a {:class "dads-breadcrumb__link" :href href} text])])]])
+
 (defn status
   "Live summary line (fetch result count etc). id is required so the
    browser glue can write it."
