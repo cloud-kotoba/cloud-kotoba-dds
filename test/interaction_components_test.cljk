@@ -21,14 +21,14 @@
 (defn- ck-asked [css] (set (map second (re-seq #"var\((--ck-[a-z0-9-]+)" css))))
 
 (deftest tokens-are-the-one-place-colour-is-derived
-  (is (<= 21 (count ck/names)) (pr-str ck/names))
+  (is (<= 20 (count ck/names)) (pr-str ck/names))
   (is (empty? (re-seq #"#[0-9a-fA-F]{3,8}\b" ck/css)) "no colour literal in the token layer")
-  (is (= 5 (count (re-seq #"light-dark\(" ck/css))) "the five surface lifts live here (ground / raised / hover / border / accent)")
+  (is (= 4 (count (re-seq #"light-dark\(" ck/css))) "the four surface lifts live here (ground / raised / hover / border)")
   (is (empty? (remove (set (keys tokens/hig->dads)) (hig-asked ck/css))) "every --hig-* the tokens read is carried by the bridge")
   (is (str/includes? ck/css "prefers-reduced-motion") "motion has a floor"))
 
 (deftest components-read-tokens-not-values
-  (doseq [[nm css] {"bots" styles/bots-css "switch" sw/css "menu" menu/css "status" status/css
+  (doseq [[nm css] {"bots" styles/bots-css "chat" styles/css "switch" sw/css "menu" menu/css "status" status/css
                     "composer" composer/css "thread" thread/css}]
     (testing nm
       (is (empty? (re-seq #"#[0-9a-fA-F]{3,8}\b" css)) "no colour literal")
@@ -117,5 +117,26 @@
   (doseq [needle ["cloudKotobaThread" "shinkansen.streamRun" "'delta'" "'followup-applied'" "'done'" "'error'" "data-followup-id" "AbortError" "dataset.markdown"]]
     (is (str/includes? thread/script needle) needle))
   (is (not (re-find #"phase|tool" thread/script)) "phases and tools are the host's frames, not the thread's"))
+
+
+;; ---------- the conversation tone (2026-09-16, owner: 「grok bots や chat gpt のトンマナ」) ----------
+
+(deftest chat-stylesheet-groups-by-surface-not-by-line
+  (is (not (re-find #"border(-[a-z]+)?:\s*1px solid" styles/css)) "no dividing line: sidebar / toolbar / thread / composer separate by surface")
+  (is (not (str/includes? styles/css "color-scheme:light")) "dark is the tokens' (light-dark), not forced off")
+  (is (empty? (re-seq #"(?:border-radius|padding|gap|font-size|margin(?:-[a-z]+)?):[^;}]*\d+px" styles/css)) "radii, space and type are tokens, not px (focus rings and the 1px clip are the only px)")
+  (doseq [needle ["--ck-radius-lg" "--ck-radius-pill" "--ck-shadow-float" "--ck-surface-hover" "[data-history=drawer]"]]
+    (is (str/includes? styles/css needle) needle)))
+
+(deftest lambda-toggle-is-the-kotoba-lang-mark-on-the-shinkansen-contract
+  (let [[tag attrs & body] (sw/lambda-toggle {:label "Dark mode"})]
+    (is (= :button tag))
+    (is (= ["switch" "false" "kot-theme" "lambda-toggle" "Dark mode"]
+           [(:role attrs) (:aria-checked attrs) (:id attrs) (:data-hydrate attrs) (:aria-label attrs)]))
+    (is (true? (:hidden attrs)) "ships hidden; the runtime reveals it")
+    (is (str/includes? (pr-str body) "kot-yy-fig") "the λ yin-yang figure, not a sun and a moon"))
+  (doseq [needle ["hydrate('lambda-toggle'" "el.hidden=false" "shinkansen.theme.effective()==='dark'?'light':'dark'" "aria-checked"]]
+    (is (str/includes? sw/script needle) needle))
+  (is (str/includes? sw/lambda-css "#kot-theme")))
 
 (run-tests)

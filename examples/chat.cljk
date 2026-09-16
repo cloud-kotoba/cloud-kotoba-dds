@@ -1,38 +1,95 @@
 (ns examples.chat
+  "The conversation pattern (cloud-kotoba-dds.chat + styles/css) in the tone
+   of the current conversation-app generation: dark-first tokens, no
+   dividing lines, a raised composer with the model chip and a circular
+   send, the λ theme toggle. Rendered to examples/chat.html and scored with
+   shinkansen.audit (floor 90). Run from the repo root:
+
+     kbb --backend sci --classpath src:resources:../jp-go-digital-design-system/src:../html/src:../css/src:../text/src:../shinkansen/src examples/chat.cljk"
   (:require [cloud-kotoba-dds.chat :as chat]
             [cloud-kotoba-dds.styles :as styles]
             [cloud-kotoba-dds.browser :as browser]
+            [cloud-kotoba-dds.tokens :as ck]
+            [cloud-kotoba-dds.switch :as switch]
+            [shinkansen.interaction :as interaction]
+            [shinkansen.theme :as theme-contract]
+            [shinkansen.audit :as audit]
+            [jp-go-dds.page :as page]
             [jp-go-dds.tokens :as tokens]
-            [html.core :as html]
-            ["node:fs" :as fs]))
+            ["node:fs" :as fs]
+            ["node:path" :as path]))
+
+(def dds-css
+  (let [candidates ["resources/jp_go_dds/dds.css" "../jp-go-digital-design-system/resources/jp_go_dds/dds.css"]]
+    (or (some #(when (fs/existsSync %) (fs/readFileSync % "utf8")) candidates)
+        (throw (ex-info "jp-go-dds dds.css not found" {:looked candidates})))))
+
 (def view
-  (chat/workspace {:style "height:100dvh"}
-    (chat/sidebar {:aria-label "Conversations"}
-      [:button {:id "new" :type "button"} "New chat"]
-      [:p "Component example"])
+  (chat/workspace {:id "main" :data-history "drawer"}
+    (chat/sidebar {:id "history" :aria-label "Conversations"}
+      [:button {:id "new" :type "button" :data-ck-chat "new"} "+ New chat"]
+      [:nav {:id "list" :data-ck-chat "list" :aria-label "Chat history"}
+       [:button {:type "button" :aria-current "true"} "Attack graph for CSF 2.0 GV"]
+       [:button {:type "button"} "Reading a PieceCID"]]
+      [:button {:id "history-close" :type "button" :data-ck-chat "history-close"} "Close"])
     (chat/panel {:aria-label "Example conversation"}
+      (chat/toolbar {}
+        [:button {:type "button" :id "history-toggle" :data-ck-chat "history-toggle" :aria-controls "history" :aria-expanded "false"} "Chats"]
+        [:span {:data-ck-chat "title"} "New chat"]
+        [:div {:style "display:flex;gap:8px;align-items:center"}
+         (switch/lambda-toggle {:label "Dark mode"})
+         [:button {:type "button" :id "settings-open" :data-ck-chat "settings-open"} "Settings"]])
       (chat/conversation {}
-        (chat/welcome {:id "welcome"} [:h1 "What would you like to make?"])
+        (chat/welcome {:id "welcome"}
+          [:h1 "What do you want to investigate?"]
+          [:p "Code, an advisory, a suspicious message — the answer cites what it used."])
         (chat/message-list {:id "messages" :aria-label "Messages"}))
       (chat/composer {:id "composer"}
         [:label {:for "input"} "Message"]
-        (chat/prompt {:id "input" :required true :placeholder "Try a message"})
+        (chat/prompt {:id "input" :required true :placeholder "Ask anything"})
         (chat/composer-actions {}
           (chat/model-control {}
-            (chat/model-select {:aria-label "Model"} [{:id "demo" :label "Local demo"}]))
-          [:button {:type "submit"} "Send"])
-        [:small "Local fixture. No network generation or billing."]))))
+            (chat/model-select {:aria-label "Model"} [{:id "demo" :label "Local demo"} {:id "glm" :label "glm5.3 flash"}]))
+          [:button {:type "submit" :aria-label "Send"} "↑"])))))
+
 (def demo-script "
 const form=document.querySelector('#composer'),input=document.querySelector('#input'),list=document.querySelector('#messages');
 form.onsubmit=e=>{e.preventDefault();if(!input.value.trim())return;document.querySelector('#welcome').hidden=true;
 const view=cloudKotobaChat.createMessage({container:list,input:input.value,role:'Demo',userLabel:'You',stages:[]});
 view.output.textContent='Local reply: '+input.value;view.live.textContent='Complete';input.value='';};
 document.querySelector('#new').onclick=()=>{list.replaceChildren();document.querySelector('#welcome').hidden=false;input.focus();};
+const side=document.querySelector('#history'),toggle=document.querySelector('#history-toggle');
+toggle.onclick=()=>{const open=side.classList.toggle('is-open');toggle.setAttribute('aria-expanded',String(open));};
+document.querySelector('#history-close').onclick=()=>{side.classList.remove('is-open');toggle.setAttribute('aria-expanded','false');toggle.focus();};
 ")
-(.writeFileSync fs "examples/chat.html"
- (str "<!doctype html>" (html/->html
-  [:html {:lang "en"}
-   [:head [:meta {:charset "utf-8"}] [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
-    [:title "Shared chat component example"]
-    [:style (str tokens/bridge-css styles/css "body{margin:0;font-family:system-ui}*{box-sizing:border-box}button{min-height:44px}")]]
-   [:body view]]) "<script>" browser/script demo-script "</script>"))
+
+(def html
+  (page/->page
+   {:title "Conversation example"
+    :description "cloud-kotoba-dds conversation pattern — dark-first tokens, no dividing lines, the λ theme toggle"
+    :lang "en"
+    :css dds-css
+    :dark? true
+    :app-css (str tokens/bridge-css "\n" ck/css "\n" styles/css "\n" switch/lambda-css "\n"
+                  "body{margin:0;font-family:system-ui,sans-serif;color:var(--ck-text);background:var(--ck-surface-ground)}"
+                  ".chat-workspace{height:100dvh}"
+                  ".dads-visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}")
+    :head [[:script theme-contract/head-script]]}
+   [:a {:href "#main" :class "dads-visually-hidden"} "Skip to content"]
+   view
+   [:script interaction/runtime]
+   [:script switch/script]
+   [:script browser/script]
+   [:script demo-script]))
+
+(def out "examples/chat.html")
+(fs/writeFileSync out html)
+
+(let [report (audit/score-document {:file out :html html} {})
+      overall (:overall report)
+      floor 90]
+  (println (str "SCANNED\t1\tdocument " out " (" (count html) " bytes)"))
+  (println (str "shinkansen.audit overall " (.toFixed overall 1) " / floor " floor))
+  (doseq [f (:findings report)]
+    (println (str "  finding " (:axis f) " score " (:score f) " — " (:finding f))))
+  (when (< overall floor) (set! (.-exitCode js/process) 1)))

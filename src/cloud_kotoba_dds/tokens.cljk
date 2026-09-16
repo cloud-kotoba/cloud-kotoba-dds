@@ -12,7 +12,7 @@
    copied into the third component; they are tokens now, defined once on
    `:root` and read by `.ck-*` everywhere:
 
-     --ck-surface-ground / -raised / -hover / -border / -accent
+     --ck-surface-ground / -raised / -hover / -border
      --ck-text / --ck-text-muted / --ck-accent / --ck-danger
      --ck-radius-sm / -md / -lg / -pill
      --ck-layer-top / --ck-layer-float
@@ -38,10 +38,6 @@
    "--ck-surface-raised:light-dark(var(--hig-color-system-background),var(--dds-light-neutral-solid-gray-900));"
    "--ck-surface-hover:light-dark(var(--hig-color-quaternary-system-fill),color-mix(in srgb,var(--dds-light-neutral-solid-gray-900) 60%,var(--dds-light-neutral-solid-gray-800)));"
    "--ck-surface-border:light-dark(var(--hig-color-separator),color-mix(in srgb,var(--dds-light-neutral-solid-gray-900) 45%,var(--dds-light-neutral-solid-gray-800)));"
-   ;; the tinted surface a person's own message sits on (the thread's
-   ;; person bubble): the accent, faint, over the raised surface — light
-   ;; keeps DADS key-50, dark mixes the tint into the lifted grey
-   "--ck-surface-accent:light-dark(var(--color-key-50),color-mix(in srgb,var(--hig-color-tint) 24%,var(--dds-light-neutral-solid-gray-900)));"
    ;; text and accents
    "--ck-text:var(--hig-color-label);"
    "--ck-text-muted:var(--hig-color-secondary-label);"
@@ -49,10 +45,14 @@
    "--ck-danger:var(--color-semantic-error-1);"
    "--ck-success:var(--color-semantic-success-1);"
    "--ck-warning:var(--color-semantic-warning-orange-1);"
-   ;; shape
+   ;; shape — the four radii of the current conversation-app generation
+   ;; (controls ~12, cards ~20, the composer / sheets ~28, pills), mapped
+   ;; onto the bridge's ramp: sm 10 / lg 20 / xl 28 / capsule (2026-09-16,
+   ;; owner: 「grok bots や chat gpt のトンマナ、デザイントークンで」; until
+   ;; then md was 14 and lg 20)
    "--ck-radius-sm:var(--hig-radius-sm);"
-   "--ck-radius-md:var(--hig-radius-md);"
-   "--ck-radius-lg:var(--hig-radius-lg);"
+   "--ck-radius-md:var(--hig-radius-lg);"
+   "--ck-radius-lg:var(--hig-radius-xl);"
    "--ck-radius-pill:var(--hig-radius-capsule);"
    ;; chrome layers (shinkansen.audit :chrome-layers: top bar / floating
    ;; menu) — the numbers are jp-go-dds's --hig-z-* (tokens/layers), read

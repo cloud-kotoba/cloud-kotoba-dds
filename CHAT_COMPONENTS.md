@@ -1,4 +1,19 @@
-# Conversation components — 0.3.0-alpha
+# Conversation components — 0.4.0
+
+## The tone (2026-09-16)
+
+`styles/css` is written as the **generation rules** of the current conversation-app family (owner direction: 「grok bots や chat gpt のトンマナ、デザイントークンで layout」), not as a look — every rule reads `cloud-kotoba-dds.tokens` (`--ck-*`) or the `--hig-*` bridge:
+
+| rule of the family | token |
+|---|---|
+| dark-first, one neutral ramp + one accent | `--ck-surface-ground / -raised / -hover`, `--ck-text / -muted`, `--ck-accent` (`light-dark()`) |
+| no dividing lines — grouping by surface elevation and space | no `border: 1px solid` anywhere (test pins it); the composer is a raised card with `--ck-shadow-float` |
+| radii 12 / 20 / 28 / full | `--ck-radius-sm / -md / -lg / -pill` (sm 10 · md 20 · lg 28 · capsule on the bridge's ramp) |
+| pill and circular controls | toolbar buttons and the model chip are pills; send is a circle |
+| 4px grid, large type | `--hig-spacing-*`, `--hig-text-body / -title2` |
+
+The person's turn is a bubble on the right (`--ck-surface-hover`, `--ck-radius-md`); the answer is the page itself. Hooks are unchanged. New: `.chat-workspace[data-history="drawer"]` keeps the history as a drawer on every band — a console that already has a sidebar shows one sidebar. Load order: jp-go-dds css → `tokens/bridge-css` → `cloud-kotoba-dds.tokens/css` → `styles/css`. Measured: `examples/chat.html` audit 100.0; light and dark at 1440 / 390 in headless Chromium, λ toggle flips `data-theme` and `kotoba-theme`.
+
 
 Murakumo uses this package for its production conversation layout and message DOM. The original 0.2 study remains at `index.html`; the reusable API has a separate [minimal example](examples/chat.html), generated from [examples/chat.cljk](examples/chat.cljk).
 

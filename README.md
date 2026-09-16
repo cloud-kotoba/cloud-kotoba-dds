@@ -67,6 +67,8 @@ marker です。kotoba.cloud/docs が最初の host です。
 
 ## Interaction の共通化 — tokens / menu / status
 
+**Conversation tone 0.4.0**（2026-09-16）: `cloud-kotoba-dds.styles/css` は ChatGPT / Grok 世代の会話 app の生成規則（dark-first、線で区切らず面の段差で group、角丸 12/20/28/full、pill と円の control、4px grid）を `--ck-*` token で書いた 1 枚。`switch/lambda-toggle` は kotoba-lang.org の λ toggle を shinkansen theme 契約に載せたもの。[CHAT_COMPONENTS.md](CHAT_COMPONENTS.md) / [SWITCH_COMPONENTS.md](SWITCH_COMPONENTS.md)。
+
 **Interaction components 0.2.0**: `cloud-kotoba-dds.tokens`（`--ck-*` design token、dark の surface lift を含む）、`cloud-kotoba-dds.menu`（context / floating menu、`cloudKotobaMenu`）、`cloud-kotoba-dds.status`（`role=status` の 1 行、`cloudKotobaStatus`）、`cloud-kotoba-dds.composer`（Enter 改行 / ⌘⏎ 送信 / IME guard / autosize / running 状態、`cloudKotobaComposer`）、`cloud-kotoba-dds.thread`（`shinkansen.streamRun` で届く答えを bubble に描く、`cloudKotobaThread`）。product の `interaction.js` が手で書いていた振る舞いを token → component → runtime に落とす第 1・2 波。[API と実測](INTERACTION_COMPONENTS.md)。
 
 ## 既存の見本の範囲
