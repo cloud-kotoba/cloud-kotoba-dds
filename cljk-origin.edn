@@ -13,4 +13,7 @@
   "src/cloud_kotoba_dds/shell.cljk" ".cljc"
   "src/cloud_kotoba_dds/code.cljk" ".cljc"
   "src/cloud_kotoba_dds/bots.cljk" ".cljc"
-  "src/cloud_kotoba_dds/switch.cljk" ".cljc"}}
+  "src/cloud_kotoba_dds/switch.cljk" ".cljc"
+  "src/cloud_kotoba_dds/tokens.cljk" ".cljc"
+  "src/cloud_kotoba_dds/menu.cljk" ".cljc"
+  "src/cloud_kotoba_dds/status.cljk" ".cljc"}}

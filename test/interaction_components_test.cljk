@@ -1,0 +1,77 @@
+(ns interaction-components-test
+  "tokens / menu / status — the interaction layer shared out of the products.
+
+    kbb --backend sci --classpath src:test:../jp-go-digital-design-system/src:../text/src:../shinkansen/src test/interaction_components_test.cljk"
+  (:require [cljs.test :refer [deftest is testing run-tests]]
+            [kotoba.lang.text :as str]
+            [cloud-kotoba-dds.tokens :as ck]
+            [cloud-kotoba-dds.menu :as menu]
+            [cloud-kotoba-dds.status :as status]
+            [cloud-kotoba-dds.switch :as sw]
+            [cloud-kotoba-dds.styles :as styles]
+            [shinkansen.interaction :as interaction]
+            [jp-go-dds.tokens :as tokens]))
+
+(defn- flat [h] (tree-seq (fn [x] (or (vector? x) (seq? x))) seq h))
+(defn- attrs-of [h] (->> (flat h) (filter map?) vec))
+(defn- hig-asked [css] (set (map second (re-seq #"var\((--hig-[a-z0-9-]+)" css))))
+(defn- ck-asked [css] (set (map second (re-seq #"var\((--ck-[a-z0-9-]+)" css))))
+
+(deftest tokens-are-the-one-place-colour-is-derived
+  (is (<= 19 (count ck/names)) (pr-str ck/names))
+  (is (empty? (re-seq #"#[0-9a-fA-F]{3,8}\b" ck/css)) "no colour literal in the token layer")
+  (is (= 4 (count (re-seq #"light-dark\(" ck/css))) "the four surface lifts live here")
+  (is (empty? (remove (set (keys tokens/hig->dads)) (hig-asked ck/css))) "every --hig-* the tokens read is carried by the bridge")
+  (is (str/includes? ck/css "prefers-reduced-motion") "motion has a floor"))
+
+(deftest components-read-tokens-not-values
+  (doseq [[nm css] {"bots" styles/bots-css "switch" sw/css "menu" menu/css "status" status/css}]
+    (testing nm
+      (is (empty? (re-seq #"#[0-9a-fA-F]{3,8}\b" css)) "no colour literal")
+      (is (empty? (re-seq #"light-dark\(" css)) "no surface derivation outside the token layer")
+      (let [unknown (remove (set ck/names) (ck-asked css))
+            ;; bots-css's own aliases are defined in bots-css itself
+            unknown (remove #(str/starts-with? % "--ck-bots-") unknown)]
+        (is (empty? unknown) (str "reads --ck-* the token layer does not define: " (pr-str unknown))))
+      (is (empty? (remove (set (keys tokens/hig->dads)) (hig-asked css))) "every --hig-* is carried by the bridge"))))
+
+(deftest floating-menu-is-a-menu
+  (let [v (menu/floating {:id "m" :label "Bot の操作"
+                          :items [{:label "ピン留め" :icon-path "M1 1" :action :bots/pin :params {:id "b"}}
+                                  :separator
+                                  {:label "削除" :action :bots/delete :params {:id "b"} :danger? true}
+                                  {:label "Docs" :href "/docs"}]})
+        a (attrs-of v)
+        root (first a)
+        items (filter #(= "menuitem" (:role %)) a)]
+    (is (= "menu" (:role root)))
+    (is (= "float" (:data-chrome root)) "the layer marker shinkansen.audit measures")
+    (is (true? (:hidden root)) "rendered closed; the host shows it")
+    (is (= 3 (count items)))
+    (is (= ["bots/pin" "bots/delete" nil] (mapv :data-action items)))
+    (is (= "{\"id\":\"b\"}" (:data-params (first items))))
+    (is (str/includes? (:class (second items)) "ck-menu__item--danger"))
+    (is (= "/docs" (:href (last items))) "a link item is an <a>")
+    (is (= 1 (count (filter #(= "separator" (:role %)) a))))
+    (is (every? #(= "-1" (:tabindex %)) items) "items are reached by arrow keys, not Tab")
+    (is (= [] (interaction/undeclared-actions {:events {:bots/pin {} :bots/delete {}}} (pr-str v))))))
+
+(deftest status-line-is-a-live-region-rendered-empty
+  (let [[tag attrs & children] (status/line {:id "s" :label "結果"})]
+    (is (= :p tag))
+    (is (= "status" (:role attrs)))
+    (is (= "polite" (:aria-live attrs)))
+    (is (empty? children) "nothing to announce at load — a filled status would be idle theatre")
+    (is (= "line" (:data-ck-status attrs)))))
+
+(deftest runtimes-are-self-contained
+  (doseq [needle ["cloudKotobaMenu" "role','menu'" "data-chrome','float'" "ArrowDown" "Escape" "pointerdown" "innerWidth" "opener"]]
+    (is (str/includes? menu/script needle) needle))
+  (doseq [needle ["cloudKotobaStatus" "aria-live" "data-tone" "setTimeout"]]
+    (is (or (str/includes? status/script needle) (str/includes? status/css needle) (= needle "aria-live")) needle))
+  (is (not (re-find #"fetch\(|localStorage|itonami" (str menu/script status/script))) "no product, no store, no network in the runtimes"))
+
+(defmethod cljs.test/report [:cljs.test/default :end-run-tests] [m]
+  (println "interaction-components-test" (select-keys m [:test :pass :fail :error]))
+  (when-not (cljs.test/successful? m) (set! (.-exitCode js/process) 1)))
+(run-tests)

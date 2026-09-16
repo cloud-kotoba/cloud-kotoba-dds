@@ -21,6 +21,9 @@
             [cloud-kotoba-dds.bot :as bot]
             [cloud-kotoba-dds.shell :as shell]
             [cloud-kotoba-dds.switch :as switch]
+            [cloud-kotoba-dds.tokens :as ck]
+            [cloud-kotoba-dds.menu :as menu]
+            [cloud-kotoba-dds.status :as status]
             [cloud-kotoba-dds.styles :as styles]
             [shinkansen.interaction :as interaction]
             [shinkansen.theme :as theme-contract]
@@ -90,7 +93,7 @@
                       :name (:name current)
                       :status (:meta current)
                       :actions [(bots/rail-toggle {:id "rail-toggle" :aria-controls "bots"} "一覧")
-                                (bots/action {:label "操作" :attrs {:id "ops"}})
+                                (bots/action {:label "操作" :action :bots/ops :attrs {:id "ops" :aria-haspopup "menu" :aria-controls "ops-menu"}})
                                 (bots/action {:label "＋ 新しい Bot" :primary? true :action :bots/new :attrs {:id "new-bot"}})]})
       (bots/disclosure {:id "profile"} "この Bot のプロフィール・学習"
         (bots/bubble {:role :bot}
@@ -109,7 +112,16 @@
         [:label {:for "prompt" :class "dads-visually-hidden"} "依頼"]
         (bots/prompt {:id "prompt" :placeholder (str (:name current) " に頼む")})
         (bots/send {:id "send"} "送信")
-        (bots/composer-hint {} "Enter で改行 · ⌘ / Ctrl + Enter で送信")))))
+        (bots/composer-hint {} "Enter で改行 · ⌘ / Ctrl + Enter で送信")
+        (status/line {:id "status" :label "操作の結果"})))))
+
+(def ops-menu
+  "The 操作 menu, server-rendered and hidden; the host shows it at the button."
+  (menu/floating {:id "ops-menu" :label "Bot の操作"
+                  :items [{:label "ピン留め" :icon-path "M12 17v5 M9 10.76V7a3 3 0 1 1 6 0v3.76l1.8 8.1A2 2 0 0 1 14.84 21H9.16a2 2 0 0 1-1.96-2.14z" :action :bots/pin :params {:id "bot-tabi-pm"}}
+                          {:label "複製" :icon-path "M8 8h12v12H8z M4 16V4h12" :action :bots/duplicate :params {:id "bot-tabi-pm"}}
+                          :separator
+                          {:label "1個のBotを削除" :icon-path "M4 7h16 M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2 M10 11v6 M14 11v6 M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" :action :bots/delete :params {:id "bot-tabi-pm"} :danger? true}]}))
 
 (def today-bots-json
   "The 「今日」 group and the pinned Bots, as the data the runtime draws from."
@@ -129,7 +141,17 @@
        "shinkansen.on('bots/select',function(p){current=p.id;cloudKotobaBots.setCurrent(document.getElementById('bots'),p.id);document.querySelector('[data-ck-bots=title-name]').textContent=(document.querySelector('.ck-bots__item[data-bot-id=\"'+p.id+'\"] [data-ck-bots=name]')||{}).textContent||p.id;});\n"
        "shinkansen.on('bots/rail-toggle',function(p,el){var w=document.getElementById('bots');var on=w.classList.toggle('show-rail');el.setAttribute('aria-expanded',String(on));});\n"
        "shinkansen.on('bots/send',function(p,el){var t=el.querySelector('[data-ck-bots=prompt]');document.getElementById('sent').textContent=t.value;t.value='';});\n"
-       "shinkansen.on('bots/new',function(){document.getElementById('sent').textContent='new bot';});\n"))
+       "shinkansen.on('bots/new',function(){document.getElementById('sent').textContent='new bot';});\n"
+       "var statusEl=document.getElementById('status');\n"
+       "shinkansen.on('bots/ops',function(p,el){cloudKotobaMenu.show(document.getElementById('ops-menu'),{anchor:el,opener:el});});\n"
+       "shinkansen.on('bots/pin',function(p){cloudKotobaStatus.say(statusEl,'ピン留めしました: '+p.id,{tone:'ok'});});\n"
+       "shinkansen.on('bots/duplicate',function(p){cloudKotobaStatus.say(statusEl,'Bot を複製しました。',{tone:'ok'});});\n"
+       "shinkansen.on('bots/delete',function(p){cloudKotobaStatus.say(statusEl,'削除は見本では行いません。',{tone:'warn'});});\n"
+       ;; the rail rows: a right-click opens a menu built from data, at the pointer
+       "document.getElementById('bots').addEventListener('contextmenu',function(ev){var row=ev.target.closest('.ck-bots__item');if(!row)return;ev.preventDefault();"
+       "cloudKotobaMenu.open({label:'Bot の操作',at:{x:ev.clientX,y:ev.clientY},opener:row,items:["
+       "{label:'ピン留め',icon:'M12 17v5 M9 10.76V7a3 3 0 1 1 6 0v3.76l1.8 8.1A2 2 0 0 1 14.84 21H9.16a2 2 0 0 1-1.96-2.14z',onSelect:function(){cloudKotobaStatus.say(statusEl,'ピン留めしました: '+row.dataset.botId,{tone:'ok'});}},"
+       "'separator',{label:'1個のBotを削除',danger:true,onSelect:function(){cloudKotobaStatus.say(statusEl,'削除は見本では行いません。',{tone:'warn'});}}]});});\n"))
 
 (def html
   (page/->page
@@ -138,7 +160,7 @@
     :lang "ja"
     :css dds-css
     :dark? true
-    :app-css (str tokens/bridge-css "\n" behavior/css "\n" switch/css "\n" bot-css "\n" shell/css "\n" styles/bots-css "\n"
+    :app-css (str tokens/bridge-css "\n" ck/css "\n" behavior/css "\n" switch/css "\n" menu/css "\n" status/css "\n" bot-css "\n" shell/css "\n" styles/bots-css "\n"
                   "body{margin:0;height:100dvh;display:flex;flex-direction:column;font-family:system-ui,sans-serif;color:var(--hig-color-label);background:var(--hig-color-system-background)}"
                   ".ex-top{display:flex;align-items:center;justify-content:space-between;gap:var(--hig-spacing-3);padding:var(--hig-spacing-2) var(--hig-spacing-4);border-bottom:1px solid var(--hig-color-separator)}"
                   ".ex-top h1{margin:0;font-size:var(--hig-text-subheadline-font-size)}"
@@ -156,6 +178,7 @@
                                       {:locale "en" :label "English" :href "?lang=en"}]})
      (switch/theme-switch {:id "theme"})]]
    [:main {:id "main"} view]
+   ops-menu
    [:p {:id "sent" :class "dads-visually-hidden" :aria-live "polite"}]
    [:script interaction/runtime]
    ;; the behavior layer: the account menu and the theme switch's arrows
@@ -164,6 +187,8 @@
    [:script shell/script]
    [:script bots/script]
    [:script switch/script]
+   [:script menu/script]
+   [:script status/script]
    [:script demo-script]))
 
 (def out "examples/bots-workspace.html")
@@ -171,7 +196,11 @@
 
 ;; ---------- measure ----------
 
-(let [report (audit/score-document {:file out :html html} {:actions bots/actions})
+(def example-actions
+  "The pattern's declaration plus this example's own host actions."
+  (update bots/actions :events merge {:bots/ops {} :bots/pin {} :bots/duplicate {} :bots/delete {}}))
+
+(let [report (audit/score-document {:file out :html html} {:actions example-actions})
       vp (viewport/audit {:file out :html html})
       overall (:overall report)]
   (println (str "SCANNED\t1\tdocument " out " (" (count html) " bytes)"))

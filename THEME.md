@@ -14,9 +14,9 @@
 | `tokens` | `jp-go-dds.tokens/hig->dads`（128） |
 | `motion` / `layers` / `breakpoints` | 同じ数字のデータ。`contracts.edn :motion`、`shinkansen.viewport/breakpoints` と一致することを `test/theme_test.cljk` が pin |
 | `chrome-css` | document 既定: `box-sizing`、body は grouped background + `--hig-font-text`、focus ring は `--hig-color-tint`、form control は inherit、reduced-motion |
-| `css` | skin（bridge + a11y）→ chrome → `jp-go-dds.behavior/css` → shell → switch → sheet → code → console → catalog |
+| `css` | skin（bridge + a11y）→ `cloud-kotoba-dds.tokens`（`--ck-*`）→ chrome → `jp-go-dds.behavior/css` → shell → switch → menu → status → sheet → code → console → catalog |
 | `(stylesheet dds-css)` | host が配る 1 本: DADS vendored css + dark mirror（`jp-go-dds.dark`、shinkansen の `data-theme`）+ `css` |
-| `scripts` | host が配る file: `theme.js`（`<head>`、paint 前）/ `shinkansen.js`（interaction runtime）/ `behavior.js` / `shell.js` / `switch.js` |
+| `scripts` | host が配る file: `theme.js`（`<head>`、paint 前）/ `shinkansen.js`（interaction runtime）/ `behavior.js` / `shell.js` / `switch.js` / `menu.js` / `status.js` |
 | `(head {:base :stylesheet})` | viewport meta・`color-scheme`・theme.js・stylesheet link・defer script |
 
 theme は light / dark / system の shinkansen 契約（既定 `system`）。chat / bots / graph の

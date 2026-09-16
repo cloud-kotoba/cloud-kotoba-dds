@@ -22,8 +22,9 @@
                  focus ring in --hig-color-tint, form controls inheriting
      css         everything this library ships at the token level and the
                  app-shell level, in cascade order: skin (bridge + a11y) →
-                 chrome → behavior layer → shell / switch / sheet / code /
-                 console / catalog. Chat / bots / graph stay opt-in
+                 the --ck-* layer (cloud-kotoba-dds.tokens) → chrome →
+                 behavior layer → shell / switch / menu / status / sheet /
+                 code / console / catalog. Chat / bots / graph stay opt-in
                  (cloud-kotoba-dds.styles, graph-workbench) — they are
                  workspaces, not defaults.
      stylesheet  (stylesheet dds-css) → the ONE external stylesheet a host
@@ -49,6 +50,9 @@
             [shinkansen.theme :as sk-theme]
             [shinkansen.viewport :as viewport]
             [shinkansen.interaction :as interaction]
+            [cloud-kotoba-dds.tokens :as ck]
+            [cloud-kotoba-dds.menu :as menu]
+            [cloud-kotoba-dds.status :as status]
             [cloud-kotoba-dds.shell :as shell]
             [cloud-kotoba-dds.switch :as switch]
             [cloud-kotoba-dds.sheet :as sheet]
@@ -83,10 +87,13 @@
   "The library's stylesheet at the token level and the app-shell level, in
    cascade order. Emit AFTER the DADS vendored css (and its dark mirror)."
   (str tokens/skin-css "\n"
+       ck/css "\n"
        chrome-css "\n"
        behavior/css "\n"
        shell/css "\n"
        switch/css "\n"
+       menu/css "\n"
+       status/css "\n"
        sheet/css "\n"
        code/css "\n"
        console/css "\n"
@@ -106,12 +113,14 @@
    "shinkansen.js" interaction/runtime
    "behavior.js" behavior/script
    "shell.js" shell/script
-   "switch.js" switch/script})
+   "switch.js" switch/script
+   "menu.js" menu/script
+   "status.js" status/script})
 
 (def deferred-scripts
   "The order the deferred scripts load in — the interaction runtime first
    (switch.js hydrates through it), the behavior layer, then the shell."
-  ["shinkansen.js" "behavior.js" "shell.js" "switch.js"])
+  ["shinkansen.js" "behavior.js" "shell.js" "switch.js" "menu.js" "status.js"])
 
 (defn head
   "<head> entries for a shinkansen document on this theme:
