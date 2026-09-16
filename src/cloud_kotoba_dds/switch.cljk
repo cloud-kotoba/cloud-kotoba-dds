@@ -9,6 +9,15 @@
    pressed state from `shinkansen.theme.onChange`, and keeps following the
    OS while `system` is chosen — the component carries no script of its own.
 
+   `lambda-toggle` is the λ yin-yang mark of kotoba-lang.org
+   (jp-go-dds.theme-toggle/control) as a two-state switch on the SAME
+   contract (owner direction 2026-09-16: 「テーマ切り替えは kotoba-lang.org
+   などで使っている lisp toggle を使って」): it shows the effective theme
+   (`aria-checked` = dark), a click sets the other one explicitly through
+   `shinkansen.theme.set`, and a stored choice is forgotten with `system`
+   only by a host that offers it. The mark ships `hidden`; `script` reveals
+   it once the runtime is there (a dead control is worse than none).
+
    `locale-switch` is a list of `a[hreflang]` links naming `locale/set`
    (shinkansen.locale): the runtime writes the negotiation cookie and
    follows the link's href, so the host/edge re-negotiates the document.
@@ -21,7 +30,8 @@
    follow light and dark with the page."
   (:require [kotoba.lang.text :as str]
             [shinkansen.interaction :as interaction]
-            [shinkansen.theme :as theme]))
+            [shinkansen.theme :as theme]
+            [jp-go-dds.theme-toggle :as lambda]))
 
 (def default-labels
   {:light "ライト" :dark "ダーク" :system "システム"
@@ -47,6 +57,21 @@
                              :data-mode (name mode)}
                             (interaction/action-attrs :theme/set {:mode (name mode)}))
              (get labels mode)]))))
+
+(defn lambda-toggle
+  "The λ yin-yang theme toggle, on the shinkansen theme contract.
+   `{:id :label :attrs}` — `:label` is the accessible name (default
+   「ダークモード」); `:id` defaults to `kot-theme` (the mark's own css keys on
+   it). Ship `lambda-css` and `script`."
+  [{:keys [id label attrs] :or {id "kot-theme" label "ダークモード"}}]
+  (let [[tag a & body] lambda/control]
+    (into [tag (merge a {:id id :aria-label label :data-ck-switch "lambda" :data-hydrate "lambda-toggle"} attrs)]
+          body)))
+
+(def lambda-css
+  "The mark's own stylesheet (jp-go-dds.theme-toggle/css) — keyed on
+   #kot-theme; a host that renames the id restyles the mark itself."
+  lambda/css)
 
 (defn locale-switch
   "`{:id :labels :attrs :current :locales}` where `:locales` is
@@ -89,7 +114,12 @@
    "function paint(){shinkansen.hydrate('theme-switch',function(root){"
    "shinkansen.theme.onChange(function(s){var opts=root.querySelectorAll('[data-mode]');"
    "for(var i=0;i<opts.length;i++){opts[i].setAttribute('aria-checked',opts[i].getAttribute('data-mode')===s.mode?'true':'false');}"
-   "root.setAttribute('data-effective',s.effective);});});}"
+   "root.setAttribute('data-effective',s.effective);});});"
+   ;; the λ toggle: shown once the runtime is here, painted from the
+   ;; effective theme, a click sets the other explicitly
+   "shinkansen.hydrate('lambda-toggle',function(el){el.hidden=false;"
+   "shinkansen.theme.onChange(function(s){el.setAttribute('aria-checked',s.effective==='dark'?'true':'false');el.setAttribute('data-mode',s.mode);});"
+   "el.addEventListener('click',function(){shinkansen.theme.set(shinkansen.theme.effective()==='dark'?'light':'dark');});});}"
    ;; a host may ship this in <head> (cloud-itonami-app does): hydrate once the
    ;; switch exists, not before — measured 2026-09-16, the switch stayed on
    ;; `system` after a dark dispatch because hydrate found no element yet

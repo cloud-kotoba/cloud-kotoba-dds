@@ -1,4 +1,4 @@
-# Switch components 0.1.0 — theme（light / dark / system）と言語
+# Switch components 0.2.0 — theme（light / dark / system、λ toggle）と言語
 
 どの product も持つ 2 つの切り替えを、shinkansen の契約（`shinkansen.theme` /
 `shinkansen.locale`、`shinkansen.interaction` の runtime）の上の共通 component にしたもの
@@ -33,6 +33,18 @@ CSS は `switch/css`（`--hig-*` token のみ、colour literal 0、test が数�
   従い、OS の変更にも追従する）。storage key は `kotoba-theme`（jp-go-dds.theme-toggle と同じ）。
 - `switch/script` は `shinkansen.hydrate('theme-switch')` で pressed 状態を runtime の
   `theme.onChange` から描く。server は `system` を描き、runtime が保存値で塗り直す。
+
+## lambda-toggle（0.2.0）
+
+```clojure
+(switch/lambda-toggle {:label "ダークモード"})   ; id は kot-theme（既定）、hidden で描く
+;; css: switch/lambda-css（= jp-go-dds.theme-toggle/css）、script: switch/script
+```
+kotoba-lang.org の λ yin-yang（`jp-go-dds.theme-toggle/control`）を shinkansen の theme 契約に載せた
+2 状態 switch（owner 指示 2026-09-16「テーマ切り替えは kotoba-lang.org などで使っている lisp toggle を
+使って」）。`aria-checked` は effective が dark か、click は `shinkansen.theme.set` で反対側を明示、
+`data-mode` に stored choice。`hidden` で出荷し runtime が現す（JS 無しの死んだ control を置かない）。
+system に戻す UI は無い —— 要る host は `theme-switch` を使う。
 
 ## locale
 
