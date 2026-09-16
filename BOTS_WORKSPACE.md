@@ -55,6 +55,36 @@ CSS は `jp-go-dds.tokens/bridge-css` → `bot.css` → `styles/bots-css` の順
 全要素に `data-ck-bots="<part>"` の hook が付くので、host の script は class ではなく
 hook を狙えます（class は styling contract、hook は behaviour contract）。
 
+## Interaction — action は名乗る、意味は host が持つ（shinkansen.interaction）
+
+controls は `data-action` で event を名乗ります（`rail-item` の `:id` → `bots/select {id}`、
+`composer` → `bots/send`、`rail-toggle` → `bots/rail-toggle`、`action` の `:action` → 任意）。
+語彙は `bots/actions`（`shinkansen.actions` の宣言形）で、host は自分の宣言に merge します —
+`shinkansen.audit` の `:actions-declared` 軸はこの宣言に対して document を測ります。
+
+browser 側は `shinkansen.interaction/runtime`（delegated dispatch・run stream・hydrate）の上に
+`bots/script` を載せます:
+
+```js
+// host: 意味の登録は 1 度、id で
+shinkansen.on('bots/select', ({id}) => { cloudKotobaBots.setCurrent(root, id); load(id); });
+shinkansen.on('bots/send',   (_, form) => { /* the run: shinkansen.streamRun(...) */ });
+// pattern: data から描く（hiccup の rail-item と同じ markup・hook・action）
+cloudKotobaBots.renderRail(listEl, [{label:'今日', bots:[{id, name, meta, time, unread, status, avatar}]}], {current});
+cloudKotobaBots.renderPinned(gridEl, pinnedBots, {current});
+```
+
+renderer は描くだけで、fetch も保存も判断もしません（test が `fetch(` / `localStorage` の
+不在を数えます）。顔は `cloudKotobaBot.create` が在ればそれを使います。
+
+## Rail の変種
+
+- `pinned-grid`: ピン留め / 優先 Bot を 3 列の顔 tile で list の上に。
+- `rail-launcher` の中に `cloud-kotoba-dds.shell/account-entry`（`:variant :rail`）を置くと、
+  chip と floating menu が shell の層規則（`:chrome-layers`）のまま rail の足に載ります。
+- `.ck-bots--fixed-rail`（root に付ける）: `≥ 48rem` で rail を `position:fixed` の列にし、main を
+  同じ幅だけ寄せます（itonami workspace の形。topbar の offset は app の仕事）。
+
 ## テーマ — dark は描かない、導く
 
 stylesheet は `--hig-*` / DADS semantic token だけで書かれています（colour literal
@@ -82,7 +112,7 @@ token（`--ck-bots-ground / raised / hover / border`）だけは `light-dark()` 
 ## 検証と見本
 
 ```
-kbb --backend sci --classpath src:test:../jp-go-digital-design-system/src:../text/src:../css/src:../html/src test/bots_workspace_test.cljk
+kbb --backend sci --classpath src:test:../jp-go-digital-design-system/src:../text/src:../css/src:../html/src:../shinkansen/src test/bots_workspace_test.cljk
 JP_GO_DDS_CSS=../jp-go-digital-design-system/resources/jp_go_dds/dds.css \
   kbb --backend sci --classpath src:resources:../jp-go-digital-design-system/src:../html/src:../css/src:../text/src:../shinkansen/src examples/bots_workspace.cljk
 ```
@@ -91,7 +121,8 @@ JP_GO_DDS_CSS=../jp-go-digital-design-system/resources/jp_go_dds/dds.css \
 （`:dark? true` + λ theme toggle）の上に fixture の Bot を並べた 1 文書で、生成器が
 そのまま **shinkansen の document judge**（`shinkansen.audit` 13 軸 +
 `shinkansen.viewport`）で採点し、floor 90 未満なら exit 1 にします。
-2026-09-16 実測: **overall 100.0**、viewport ok、1440 / 390 × light / dark で横はみ出し
-なし（headless Chromium）。
+2026-09-16 実測: **overall 100.0**（`:actions-declared` 込み: 4 action すべて宣言済み）、viewport ok、
+1440 / 390 × light / dark で横はみ出しなし、runtime 経由の select / send / new / account menu /
+rail-toggle が動き console error 0（headless Chromium）。
 
 Apache-2.0。

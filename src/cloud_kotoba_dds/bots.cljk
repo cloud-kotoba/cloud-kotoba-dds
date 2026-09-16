@@ -28,8 +28,28 @@
    need to draw this pattern again.
 
    Every element carries a `data-ck-bots` hook the host may target; class
-   names are the styling contract and stay stable across versions."
-  (:require [kotoba.lang.text :as str]))
+   names are the styling contract and stay stable across versions.
+
+   Interaction (2026-09-16, owner: 「interaction などを共通化」): the controls
+   name their events with `data-action` in the shinkansen vocabulary
+   (`shinkansen.interaction`) — `actions` below is the declaration a host
+   merges into its own `shinkansen.actions` decl, and `script` is the
+   browser renderer that draws rail rows and the pinned grid from data,
+   naming the same actions. The host registers what an action does
+   (`shinkansen.on('bots/select', fn)`); the pattern never guesses."
+  (:require [kotoba.lang.text :as str]
+            [shinkansen.interaction :as interaction]))
+
+(def actions
+  "The events this pattern's controls name. A host merges these into its
+   `shinkansen.actions` declaration (`(update decl :events merge (:events
+   bots/actions))`) so the dispatch surface and the audit axis
+   :actions-declared know the vocabulary."
+  {:events {:bots/select {:validate (fn [[_ {:keys [id]}]] (string? id))}
+            :bots/new {}
+            :bots/rail-toggle {}
+            :bots/send {}
+            :bots/refs {}}})
 
 (defn- with-class [attrs class]
   (assoc attrs :class (str class (when (:class attrs) (str " " (:class attrs))))))
@@ -78,17 +98,21 @@
         items))
 
 (defn rail-item
-  "One Bot row. `:avatar` is the hiccup mount from `cloud-kotoba-dds.bot/avatar`
+  "One Bot row. `:id` is the Bot id the row selects (`data-action bots/select`);
+   `:avatar` is the hiccup mount from `cloud-kotoba-dds.bot/avatar`
    (or any 2.5rem square); `:name` the Bot's name; `:meta` the one-line state
    (「待機中 · 次回 9/11 00:55」); `:time` the trailing short date; `:unread?`
    draws the dot; `:current?` marks the selected row; `:attrs` go on the
    button (the host's `:id` / `data-*` / handlers)."
-  [{:keys [avatar name meta time unread? current? attrs]}]
+  [{:keys [id avatar name meta time unread? current? attrs]}]
   [:li {:class "ck-bots__row" :data-ck-bots "row"}
    [:button (merge {:type "button"
                     :class (str "ck-bots__item" (when current? " is-current"))
                     :aria-current (when current? "true")
                     :data-ck-bots "item"}
+                   ;; `:id` names the Bot the row selects — the action the
+                   ;; host answers; a row without an id is display only
+                   (when id (interaction/action-attrs :bots/select {:id (str id)}))
                    attrs)
     [:span {:class "ck-bots__avatar" :aria-hidden "true"} avatar]
     [:span {:class "ck-bots__copy"}
@@ -98,6 +122,15 @@
      (when meta [:span {:class "ck-bots__meta" :data-ck-bots "meta"} meta])]
     (when unread?
       [:span {:class "ck-bots__dot" :data-ck-bots "unread" :role "img" :aria-label "未読"}])]])
+
+(defn pinned-grid
+  "The pinned / priority Bots as a 3-column grid of faces above the list
+   (the app's ピン留め band). Children are `rail-item`s; the stylesheet turns
+   them into face-over-name tiles and hides meta and time."
+  [attrs & items]
+  (into [:ul (assoc (with-class attrs "ck-bots__pinned") :data-ck-bots "pinned"
+                    :aria-label (or (:aria-label attrs) "ピン留めした Bot"))]
+        items))
 
 (defn rail-launcher
   "The foot of the rail: the launcher links (App / マーケットプレイス) and the
@@ -137,11 +170,13 @@
    (into [:div {:class "ck-bots__actions"}] actions)])
 
 (defn action
-  "A titlebar control: `{:label :primary? :attrs}`."
-  [{:keys [label primary? attrs]}]
+  "A titlebar control: `{:label :primary? :action :attrs}`; `:action` is the
+   event id the control names (`:bots/new` for the primary)."
+  [{:keys [label primary? action attrs]}]
   [:button (merge {:type "button"
                    :class (str "ck-bots__action" (when primary? " ck-bots__action--primary"))
                    :data-ck-bots "action"}
+                  (when action (interaction/action-attrs action))
                   attrs)
    label])
 
@@ -188,7 +223,8 @@
 (defn composer
   "The bottom form: `prompt`, `send`, `composer-hint`. `attrs` on the form."
   [attrs & children]
-  (container :form "ck-bots__composer" "composer" attrs children))
+  (container :form "ck-bots__composer" "composer"
+             (merge (interaction/action-attrs :bots/send) attrs) children))
 
 (defn prompt
   "The rounded textarea. Host supplies `:id`, `:placeholder`, `:aria-label`."
@@ -212,5 +248,53 @@
   [attrs label]
   [:button (merge {:type "button" :class "ck-bots__rail-toggle" :data-ck-bots "rail-toggle"
                    :aria-expanded "false"}
+                  (interaction/action-attrs :bots/rail-toggle)
                   attrs)
    label])
+
+;; ---------- the browser renderer ----------
+
+(def script
+  "The pattern's browser runtime, one JS string the host ships (or inlines
+   after `shinkansen.interaction/runtime`, which it requires for dispatch).
+   Exposes `globalThis.cloudKotobaBots`:
+
+     renderRail(listEl, groups, opts)   groups: [{label, bots:[bot…]}]
+     renderPinned(gridEl, bots, opts)   bots: [bot…]  (hidden when empty)
+     setCurrent(root, id)               moves aria-current / is-current
+     row(bot, opts)                     one <li> — what renderRail appends
+
+   A `bot` is {id, name, meta, time, unread, status, avatar:{color,glyph}}.
+   `opts.current` is the selected id; `opts.avatar(bot)` may return an
+   element (default: cloudKotobaBot.create when that runtime is present,
+   else an empty face slot). Rows carry the SAME markup and hooks the
+   hiccup `rail-item` emits, and name `bots/select` with {id} — the host
+   answers with shinkansen.on('bots/select', ({id}) => …). Nothing here
+   fetches, stores or decides."
+  (str
+   "(function(global){'use strict';"
+   "function el(tag,cls,text){var n=document.createElement(tag);if(cls)n.className=cls;if(text!=null)n.textContent=text;return n;}"
+   "function face(bot,opts){if(opts&&opts.avatar){var a=opts.avatar(bot);if(a)return a;}"
+   "if(global.cloudKotobaBot&&global.cloudKotobaBot.create){return global.cloudKotobaBot.create({id:bot.id,avatar:bot.avatar||{},status:bot.status||'unknown'});}"
+   "return el('span','ck-bot');}"
+   "function row(bot,opts){opts=opts||{};var li=el('li','ck-bots__row');li.dataset.ckBots='row';"
+   "var b=el('button','ck-bots__item');b.type='button';b.dataset.ckBots='item';"
+   "if(bot.id!=null){b.setAttribute('data-action','bots/select');b.setAttribute('data-params',JSON.stringify({id:String(bot.id)}));b.dataset.botId=String(bot.id);}"
+   "var cur=opts.current!=null&&String(opts.current)===String(bot.id);if(cur){b.classList.add('is-current');b.setAttribute('aria-current','true');}"
+   "if(bot.label)b.setAttribute('aria-label',bot.label);"
+   "var av=el('span','ck-bots__avatar');av.setAttribute('aria-hidden','true');av.append(face(bot,opts));"
+   "var copy=el('span','ck-bots__copy');var head=el('span','ck-bots__headline');"
+   "var name=el('span','ck-bots__name',bot.name||'');name.dataset.ckBots='name';head.append(name);"
+   "if(bot.time){var t=el('time','ck-bots__time',bot.time);t.dataset.ckBots='time';head.append(t);}"
+   "copy.append(head);if(bot.meta){var m=el('span','ck-bots__meta',bot.meta);m.dataset.ckBots='meta';copy.append(m);}"
+   "b.append(av,copy);"
+   "if(bot.unread){var d=el('span','ck-bots__dot');d.dataset.ckBots='unread';d.setAttribute('role','img');d.setAttribute('aria-label',opts.unreadLabel||'未読');b.append(d);}"
+   "li.append(b);return li;}"
+   "function renderRail(list,groups,opts){if(!list)return 0;list.replaceChildren();var n=0;"
+   "(groups||[]).forEach(function(g){var ul=el('ul','ck-bots__group');ul.dataset.ckBots='group';"
+   "var lab=el('li','ck-bots__group-label',g.label||'');lab.dataset.ckBots='group-label';ul.append(lab);"
+   "(g.bots||[]).forEach(function(bot){ul.append(row(bot,opts));n++;});list.append(ul);});return n;}"
+   "function renderPinned(grid,bots,opts){if(!grid)return 0;grid.replaceChildren();(bots||[]).forEach(function(bot){grid.append(row(bot,opts));});grid.hidden=!(bots&&bots.length);return bots?bots.length:0;}"
+   "function setCurrent(root,id){var items=(root||document).querySelectorAll('.ck-bots__item');for(var i=0;i<items.length;i++){var it=items[i];var on=it.dataset.botId!=null&&it.dataset.botId===String(id);it.classList.toggle('is-current',on);if(on)it.setAttribute('aria-current','true');else it.removeAttribute('aria-current');}}"
+   "global.cloudKotobaBots=Object.freeze({row:row,renderRail:renderRail,renderPinned:renderPinned,setCurrent:setCurrent});"
+   "})(globalThis);"))
