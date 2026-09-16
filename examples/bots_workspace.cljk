@@ -18,7 +18,9 @@
    would report it as ours."
   (:require [cloud-kotoba-dds.bots :as bots]
             [cloud-kotoba-dds.bot :as bot]
+            [cloud-kotoba-dds.shell :as shell]
             [cloud-kotoba-dds.styles :as styles]
+            [shinkansen.interaction :as interaction]
             [jp-go-dds.page :as page]
             [jp-go-dds.tokens :as tokens]
             [jp-go-dds.theme-toggle :as theme]
@@ -63,17 +65,23 @@
   (bots/workspace {:aria-label "Bots" :id "bots"}
     (bots/rail {:aria-label "Bot 一覧"}
       (bots/rail-search {:id "bots-search" :placeholder "Bot を検索" :aria-label "Bot を検索"})
-      (bots/rail-list {}
+      ;; the pinned grid and the 「今日」 group are drawn by the runtime from
+      ;; data (cloudKotobaBots.renderPinned / renderRail); 「過去7日間」 is
+      ;; server-rendered hiccup — both paths emit the same markup and hooks
+      (bots/pinned-grid {:id "pinned" :hidden true})
+      (bots/rail-list {:id "rail-list"}
         (apply bots/rail-group {} "過去7日間"
                (for [b (take 3 fixture-bots)]
                  (bots/rail-item (assoc b :avatar (avatar b) :attrs {:data-bot-id (:id b)}))))
-        (apply bots/rail-group {} "今日"
-               (for [b (drop 3 fixture-bots)]
-                 (bots/rail-item (assoc b :avatar (avatar b) :attrs {:data-bot-id (:id b)})))))
+        [:div {:id "rail-today"}])
       (bots/rail-launcher {}
         (bots/launcher-link {:href "#apps" :label "App" :mark "▦"})
         (bots/launcher-link {:href "#marketplace" :label "マーケットプレイス" :mark "⊞"})
-        (bots/launcher-link {:href "#account" :label "Itonami User" :mark "I"})))
+        (shell/account-entry {:id "account" :variant :rail
+                              :sign-in {:href "#sign-in" :label "サインイン"}
+                              :menu-label "アカウント"
+                              :items [{:href "#account" :label "アカウント設定"}
+                                      {:id "sign-out" :action "sign-out" :label "サインアウト"}]})))
     (bots/main {}
       (bots/titlebar {:refs (bots/chip {:label "参照 0" :as :button :attrs {:id "refs"}})
                       :avatar (avatar current)
@@ -81,7 +89,7 @@
                       :status (:meta current)
                       :actions [(bots/rail-toggle {:id "rail-toggle" :aria-controls "bots"} "一覧")
                                 (bots/action {:label "操作" :attrs {:id "ops"}})
-                                (bots/action {:label "＋ 新しい Bot" :primary? true :attrs {:id "new-bot"}})]})
+                                (bots/action {:label "＋ 新しい Bot" :primary? true :action :bots/new :attrs {:id "new-bot"}})]})
       (bots/disclosure {:id "profile"} "この Bot のプロフィール・学習"
         (bots/bubble {:role :bot}
           "/ 7911 の 2 repo が実装を持つ。じゃらんと同じ面。 Product-specific focus: blueprint と実装の差を 1 つ名指しし、次に閉じる面を決める。 Contract: - Advance one verified step using admitted repository evidence. - Reuse recorded evidence; do not repeat discovery. - Separate observed facts from proposals; external effects require their grant. - If blocked, name one exact prerequisite once and stop."))
@@ -101,10 +109,25 @@
         (bots/send {:id "send"} "送信")
         (bots/composer-hint {} "Enter で改行 · ⌘ / Ctrl + Enter で送信")))))
 
+(def today-bots-json
+  "The 「今日」 group and the pinned Bots, as the data the runtime draws from."
+  (str "{\"today\":[{\"id\":\"bot-isekai-qa\",\"name\":\"network isekai · QA\",\"meta\":\"作業中 · 前提待ち\",\"time\":\"9/16\",\"status\":\"working\",\"avatar\":{\"color\":\"green\",\"glyph\":\"cloud\"}}],"
+       "\"pinned\":[{\"id\":\"bot-tabi-pm\",\"name\":\"itonami 旅 · Product Manager\",\"status\":\"blocked\",\"unread\":true,\"avatar\":{\"color\":\"violet\",\"glyph\":\"bean\"}},"
+       "{\"id\":\"bot-shigoto-bd\",\"name\":\"itonami 仕事 · Business Developer\",\"status\":\"idle\",\"avatar\":{\"color\":\"blue\",\"glyph\":\"circle\"}},"
+       "{\"id\":\"bot-isekai-qa\",\"name\":\"network isekai · QA\",\"status\":\"working\",\"avatar\":{\"color\":\"green\",\"glyph\":\"cloud\"}}]}"))
+
 (def demo-script
-  "cloudKotobaBot.mountAll();
-document.getElementById('rail-toggle').onclick=function(){var w=document.getElementById('bots');var on=w.classList.toggle('show-rail');this.setAttribute('aria-expanded',String(on));};
-document.getElementById('composer').onsubmit=function(e){e.preventDefault();};")
+  (str "var data=" today-bots-json ";var current='bot-tabi-pm';\n"
+       ;; runtime-drawn parts: the pinned grid and the 今日 group
+       "cloudKotobaBots.renderPinned(document.getElementById('pinned'),data.pinned,{current:current});\n"
+       "cloudKotobaBots.renderRail(document.getElementById('rail-today'),[{label:'今日',bots:data.today}],{current:current});\n"
+       "cloudKotobaBot.mountAll();\n"
+       "cloudKotobaShell.hydrateSession(document.getElementById('account'),{name:'itonami-user',workspace:'Itonami'});\n"
+       ;; what the actions DO is the host's — registered once, by id
+       "shinkansen.on('bots/select',function(p){current=p.id;cloudKotobaBots.setCurrent(document.getElementById('bots'),p.id);document.querySelector('[data-ck-bots=title-name]').textContent=(document.querySelector('.ck-bots__item[data-bot-id=\"'+p.id+'\"] [data-ck-bots=name]')||{}).textContent||p.id;});\n"
+       "shinkansen.on('bots/rail-toggle',function(p,el){var w=document.getElementById('bots');var on=w.classList.toggle('show-rail');el.setAttribute('aria-expanded',String(on));});\n"
+       "shinkansen.on('bots/send',function(p,el){var t=el.querySelector('[data-ck-bots=prompt]');document.getElementById('sent').textContent=t.value;t.value='';});\n"
+       "shinkansen.on('bots/new',function(){document.getElementById('sent').textContent='new bot';});\n"))
 
 (def html
   (page/->page
@@ -113,7 +136,7 @@ document.getElementById('composer').onsubmit=function(e){e.preventDefault();};")
     :lang "ja"
     :css dds-css
     :dark? true
-    :app-css (str tokens/bridge-css "\n" theme/css "\n" bot-css "\n" styles/bots-css "\n"
+    :app-css (str tokens/bridge-css "\n" theme/css "\n" bot-css "\n" shell/css "\n" styles/bots-css "\n"
                   "body{margin:0;height:100dvh;display:flex;flex-direction:column;font-family:system-ui,sans-serif;color:var(--hig-color-label);background:var(--hig-color-system-background)}"
                   ".ex-top{display:flex;align-items:center;justify-content:space-between;gap:var(--hig-spacing-3);padding:var(--hig-spacing-2) var(--hig-spacing-4);border-bottom:1px solid var(--hig-color-separator)}"
                   ".ex-top h1{margin:0;font-size:var(--hig-text-subheadline-font-size)}"
@@ -124,7 +147,11 @@ document.getElementById('composer').onsubmit=function(e){e.preventDefault();};")
     [:h1 "Bots workspace — cloud-kotoba-dds"]
     theme/control]
    view
+   [:p {:id "sent" :class "dads-visually-hidden" :aria-live "polite"}]
+   [:script interaction/runtime]
    [:script bot-js]
+   [:script shell/script]
+   [:script bots/script]
    [:script demo-script]))
 
 (def out "examples/bots-workspace.html")
@@ -132,7 +159,7 @@ document.getElementById('composer').onsubmit=function(e){e.preventDefault();};")
 
 ;; ---------- measure ----------
 
-(let [report (audit/score-document {:file out :html html} {})
+(let [report (audit/score-document {:file out :html html} {:actions bots/actions})
       vp (viewport/audit {:file out :html html})
       overall (:overall report)]
   (println (str "SCANNED\t1\tdocument " out " (" (count html) " bytes)"))

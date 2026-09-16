@@ -12,6 +12,7 @@
             [kotoba.lang.text :as str]
             [cloud-kotoba-dds.bots :as bots]
             [cloud-kotoba-dds.styles :as styles]
+            [shinkansen.interaction :as interaction]
             [jp-go-dds.tokens :as tokens]))
 
 (defn- flatten-hiccup [h]
@@ -24,16 +25,17 @@
   (let [view (bots/workspace {:aria-label "Bots"}
                (bots/rail {}
                  (bots/rail-search {:id "s"})
+                 (bots/pinned-grid {} (bots/rail-item {:id "p" :name "P"}))
                  (bots/rail-list {}
                    (bots/rail-group {} "今日"
-                     (bots/rail-item {:name "A" :meta "待機中" :time "9/16" :unread? true :current? true
+                     (bots/rail-item {:id "a" :name "A" :meta "待機中" :time "9/16" :unread? true :current? true
                                       :attrs {:data-bot-id "a"}})
                      (bots/rail-item {:name "B"})))
                  (bots/rail-launcher {} (bots/launcher-link {:href "#x" :label "App" :mark "▦"})))
                (bots/main {}
                  (bots/titlebar {:refs (bots/chip {:label "参照 0"}) :name "A" :status "error"
                                  :actions [(bots/action {:label "操作"})
-                                           (bots/action {:label "＋" :primary? true})]})
+                                           (bots/action {:label "＋" :primary? true :action :bots/new})]})
                  (bots/disclosure {} "profile" [:p "body"])
                  (bots/feed {:id "f"}
                    (bots/feed-note {} [:span "note"])
@@ -44,22 +46,41 @@
                    (bots/send {} "送信")
                    (bots/composer-hint {} "hint"))))
         hooks (set (keep :data-ck-bots (attrs-of view)))]
-    (is (= #{"workspace" "rail" "search" "list" "group" "group-label" "row" "item" "name" "time" "meta" "unread"
+    (is (= #{"workspace" "rail" "search" "list" "group" "group-label" "row" "item" "name" "time" "meta" "unread" "pinned"
              "launcher" "launch" "main" "titlebar" "chip" "title-name" "title-status" "action"
              "disclosure" "feed" "note" "card" "tag" "summary" "bubble" "composer" "prompt" "send" "hint"}
            hooks)
         "every part is addressable by data-ck-bots")
     (testing "the current row is marked for both CSS and assistive tech"
       (let [items (filter #(= "item" (:data-ck-bots %)) (attrs-of view))]
-        (is (= ["true" nil] (mapv :aria-current items)))
-        (is (str/includes? (:class (first items)) "is-current"))
-        (is (not (str/includes? (:class (second items)) "is-current")))))
+        (is (= [nil "true" nil] (mapv :aria-current items)) "pinned P, current A, plain B")
+        (is (str/includes? (:class (second items)) "is-current"))
+        (is (not (str/includes? (:class (last items)) "is-current")))))
     (testing "host attrs land on the control, not the row"
-      (is (= "a" (:data-bot-id (first (filter #(= "item" (:data-ck-bots %)) (attrs-of view)))))))
+      (is (= "a" (:data-bot-id (second (filter #(= "item" (:data-ck-bots %)) (attrs-of view)))))))
     (testing "unread is announced, not just drawn"
       (is (= "未読" (:aria-label (first (filter #(= "unread" (:data-ck-bots %)) (attrs-of view)))))))
     (testing "the tag names its state"
-      (is (= "ok" (:data-state (first (filter #(= "tag" (:data-ck-bots %)) (attrs-of view)))))))))
+      (is (= "ok" (:data-state (first (filter #(= "tag" (:data-ck-bots %)) (attrs-of view)))))))
+    (testing "controls name their actions in the shinkansen vocabulary, and every one is declared"
+      (let [items (filter #(= "item" (:data-ck-bots %)) (attrs-of view))]
+        (is (= ["bots/select" "bots/select" nil] (mapv :data-action items)) "a row without an id names nothing")
+        (is (= "{\"id\":\"a\"}" (:data-params (second items)))))
+      (is (= "bots/send" (:data-action (first (filter #(= "composer" (:data-ck-bots %)) (attrs-of view))))))
+      (is (= "bots/new" (:data-action (last (filter #(= "action" (:data-ck-bots %)) (attrs-of view))))))
+      (let [html (pr-str view)]   ; the attribute text is what the audit reads
+        (is (= [] (interaction/undeclared-actions bots/actions html))
+            "every action the components emit is in bots/actions")))))
+
+(deftest runtime-emits-the-same-contract-as-the-hiccup
+  ;; The JS renderer is exercised in a browser by the example; here its
+  ;; text is pinned to the hooks and actions the hiccup emits, so the two
+  ;; render paths cannot drift apart silently.
+  (doseq [needle ["ck-bots__row" "ck-bots__item" "ck-bots__avatar" "ck-bots__headline" "ck-bots__name"
+                  "ck-bots__time" "ck-bots__meta" "ck-bots__dot" "ck-bots__group" "ck-bots__group-label"
+                  "'bots/select'" "data-params" "is-current" "aria-current" "cloudKotobaBots"]]
+    (is (str/includes? bots/script needle) needle))
+  (is (not (re-find #"fetch\(|localStorage|XMLHttpRequest" bots/script)) "the renderer draws; it does not fetch or store"))
 
 (deftest stylesheet-holds-the-token-contract
   (let [css styles/bots-css
