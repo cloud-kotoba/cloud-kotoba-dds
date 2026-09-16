@@ -54,6 +54,10 @@ marker です。kotoba.cloud/docs が最初の host です。
 
 **Bots workspace pattern 0.1.0** は Cloud Itonami の `#/bots` 画面の角丸レイアウトを共通化したものです。rail（検索・日付 group・Bot 行・launcher）、titlebar、disclosure、feed の result card、composer を Hiccup で提供し、stylesheet は `--hig-*` token だけで書かれているので light / dark（`jp-go-dds.dark`）の両方に無改造で追従します。[API と組み込み方](BOTS_WORKSPACE.md)、[動く見本](examples/bots-workspace.html)（生成器が shinkansen の document judge で採点、実測 100.0）。
 
+## theme と言語の切り替え
+
+**Switch components 0.1.0**: light / dark / system の theme switch と `a[hreflang]` の言語切り替えを、shinkansen の契約（`shinkansen.theme` / `shinkansen.locale`）の上に置いた共通 component。[API と実測](SWITCH_COMPONENTS.md)、見本は [bots-workspace](examples/bots-workspace.html) の topbar。
+
 ## 既存の見本の範囲
 
 バージョンは **0.2.0-study**。共通設計・操作契約・見本のリポジトリです。直感性を優先する表示ルールはMurakumoで適用されていますが、この見本全体は配布可能な製品用コンポーネントライブラリではありません。router、認証、永続会話、生成・課金の各adapterは今後の実装範囲です。

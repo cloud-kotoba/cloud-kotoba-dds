@@ -1,0 +1,51 @@
+(ns switch-test
+  "The theme and language switches on the shinkansen contracts.
+
+    kbb --backend sci --classpath src:test:../jp-go-digital-design-system/src:../text/src:../shinkansen/src test/switch_test.cljk"
+  (:require [cljs.test :refer [deftest is testing run-tests]]
+            [kotoba.lang.text :as str]
+            [cloud-kotoba-dds.switch :as sw]
+            [shinkansen.interaction :as interaction]
+            [shinkansen.theme :as theme]
+            [jp-go-dds.tokens :as tokens]))
+
+(defn- flat [h] (tree-seq (fn [x] (or (vector? x) (seq? x))) seq h))
+(defn- attrs-of [h] (->> (flat h) (filter map?) vec))
+
+(deftest theme-switch-names-the-framework-action-for-each-mode
+  (let [v (sw/theme-switch {:id "t"})
+        opts (filter :data-mode (attrs-of v))]
+    (is (= ["light" "dark" "system"] (mapv :data-mode opts)) "the three modes, in shinkansen.theme's order")
+    (is (every? #(= "theme/set" (:data-action %)) opts))
+    (is (= ["{\"mode\":\"light\"}" "{\"mode\":\"dark\"}" "{\"mode\":\"system\"}"] (mapv :data-params opts)))
+    (is (= ["false" "false" "true"] (mapv :aria-checked opts)) "server renders system until the runtime repaints")
+    (is (= "true" (:aria-checked (second (filter :data-mode (attrs-of (sw/theme-switch {:current :dark})))))))
+    (is (= "theme-switch" (:data-hydrate (first (attrs-of v)))) "the runtime repaints it by hydrate name")
+    (is (= [] (interaction/undeclared-actions {:events {}} (pr-str v))) "theme/set is a framework action")))
+
+(deftest locale-switch-is-explicit-alternates
+  (let [v (sw/locale-switch {:current "ja" :locales [{:locale "ja" :label "日本語" :href "/"} {:locale :en :label "English"}]})
+        links (filter :hreflang (attrs-of v))]
+    (is (= ["ja" "en"] (mapv :hreflang links)))
+    (is (= ["ja" "en"] (mapv :lang links)))
+    (is (= ["/" "#"] (mapv :href links)) "no href → # → the runtime reloads after writing the cookie")
+    (is (= ["true" nil] (mapv :aria-current links)))
+    (is (every? #(= "locale/set" (:data-action %)) links))
+    (is (= "{\"locale\":\"en\"}" (:data-params (second links))))
+    (is (= [] (interaction/undeclared-actions {:events {}} (pr-str v))))))
+
+(deftest stylesheet-and-script-hold-the-contract
+  (let [asked (set (map second (re-seq #"var\((--hig-[a-z0-9-]+)" sw/css)))
+        missing (remove (set (keys tokens/hig->dads)) asked)]
+    (println (str "SCANNED\t" (count asked) "\thig tokens asked by switch/css"))
+    (is (pos? (count asked)))
+    (is (empty? missing) (pr-str missing))
+    (is (empty? (re-seq #"#[0-9a-fA-F]{3,8}\b" sw/css)) "no colour literal"))
+  (is (str/includes? sw/script "shinkansen.theme.onChange") "paints from the runtime's state")
+  (is (not (str/includes? sw/script "localStorage")) "the component never touches storage — the contract does")
+  (is (not (str/includes? sw/script (pr-str theme/storage-key)))))
+
+(defmethod cljs.test/report [:cljs.test/default :end-run-tests] [m]
+  (println "switch-test" (select-keys m [:test :pass :fail :error]))
+  (when-not (cljs.test/successful? m) (set! (.-exitCode js/process) 1)))
+(run-tests)
