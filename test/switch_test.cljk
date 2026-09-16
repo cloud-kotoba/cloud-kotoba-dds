@@ -21,6 +21,7 @@
     (is (= ["false" "false" "true"] (mapv :aria-checked opts)) "server renders system until the runtime repaints")
     (is (= "true" (:aria-checked (second (filter :data-mode (attrs-of (sw/theme-switch {:current :dark})))))))
     (is (= "theme-switch" (:data-hydrate (first (attrs-of v)))) "the runtime repaints it by hydrate name")
+    (is (= "radiogroup" (:data-behavior (first (attrs-of v)))) "arrows move and choose through jp-go-dds.behavior (2026-09-16)")
     (is (= [] (interaction/undeclared-actions {:events {}} (pr-str v))) "theme/set is a framework action")))
 
 (deftest locale-switch-is-explicit-alternates

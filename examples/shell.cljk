@@ -5,6 +5,7 @@
    is APP css here on purpose: the pattern owns the two layers, not the
    app's rail geometry."
   (:require [cloud-kotoba-dds.shell :as shell]
+            [jp-go-dds.behavior :as behavior]
             [jp-go-dds.tokens :as tokens]
             [html.core :as html]
             ["node:fs" :as fs]))
@@ -47,6 +48,8 @@ document.getElementById('sign-out').onclick=()=>{document.getElementById('credit
         [:html {:lang "en"}
          [:head [:meta {:charset "utf-8"}] [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
           [:title "Shell chrome example"]
-          [:style (str tokens/bridge-css shell/css app-css)]]
+          ;; behavior/css carries the menu's float layer since 2026-09-16
+          [:style (str tokens/bridge-css behavior/css shell/css app-css)]]
          [:body view]])
-       "<script>" shell/script demo-script "</script>"))
+       ;; the behavior runtime answers the menu; the shell script fills the chip
+       "<script>" behavior/script shell/script demo-script "</script>"))

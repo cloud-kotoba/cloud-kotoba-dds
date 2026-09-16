@@ -1,0 +1,38 @@
+(ns shell-test
+  "The shell chrome on the behavior layer (2026-09-16): the account entry is a
+   jp-go-dds.behavior menu — the markers the runtime selects and the audit
+   measures are on the markup, and the shell's own script only fills and
+   reveals.
+
+    kbb --backend sci --classpath src:test:../jp-go-digital-design-system/src:../text/src:../shinkansen/src:../css/src:../html/src test/shell_test.cljk"
+  (:require [cljs.test :refer [deftest is testing run-tests]]
+            [kotoba.lang.text :as str]
+            [cloud-kotoba-dds.shell :as shell]
+            [jp-go-dds.behavior :as behavior]
+            [shinkansen.audit :as audit]
+            [html.core :as html]))
+
+(def entry
+  (shell/account-entry {:id "account" :variant :rail :sign-in {:href "#in" :label "Sign in"} :menu-label "Account menu"
+                        :items [{:href "#account" :label "Account"} {:id "sign-out" :action "sign-out" :label "Sign out"}]}))
+
+(deftest the-account-entry-is-a-behavior-menu
+  (let [h (html/->html entry)]
+    (doseq [a ["data-behavior=\"menu\"" "data-menu-placement=\"up\"" "data-menu-opener" "aria-expanded=\"false\"" "aria-controls=\"account-menu\"" "aria-haspopup=\"menu\""
+               "data-menu-popup" "data-chrome=\"float\"" "role=\"menu\"" "role=\"menuitem\""]]
+      (is (str/includes? h a) a))
+    (is (str/includes? h "<button type=\"button\" class=\"ck-account__chip\"") "the chip is a button, not a summary")
+    (is (not (str/includes? h "<details")) "no details/summary: the menu is the runtime's")
+    (is (= 2 (count (re-seq #"role=\"menuitem\"" h))))
+    (is (not (str/includes? shell/script "Escape")) "the shell script no longer wires the menu — that is behavior/script's")))
+
+(deftest the-audit-measures-the-entry-through-its-markers
+  (let [doc (fn [scripts] (str "<html><head></head><body><main id=\"main\">" (html/->html entry) scripts "</main></body></html>"))
+        ctx {:assets #{} :documents #{} :csp :none}
+        ax (fn [r id] (first (filter #(= id (:id %)) (:axes r))))]
+    (is (= 1.0 (:score (ax (audit/score-document {:file "e" :html (doc (str "<script>" behavior/script "</script>"))} ctx) :behaviors-delivered))))
+    (is (str/includes? (:finding (ax (audit/score-document {:file "e" :html (doc "")} ctx) :behaviors-delivered)) "data-behavior=menu#account: no shipped script selects it"))
+    (testing "the float layer still measures through chrome-layers with behavior/css"
+      (is (= 1.0 (:score (ax (audit/score-document {:file "e" :html (str "<html><head><style>" behavior/css shell/css "</style></head><body><main id=\"main\">" (html/->html entry) "</main></body></html>")} ctx) :chrome-layers)))))))
+
+(run-tests)

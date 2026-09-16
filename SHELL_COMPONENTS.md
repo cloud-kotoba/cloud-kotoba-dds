@@ -1,3 +1,10 @@
+> 2026-09-16: the account menu is a `jp-go-dds.behavior` menu (`data-behavior=menu` on the
+> root, the chip is `[data-menu-opener]`, the menu `[data-menu-popup][data-chrome=float]`,
+> items `role=menuitem`). Open / close / Escape-to-chip / outside click / arrows / typeahead
+> are the runtime's — ship `jp-go-dds.behavior/script` (`theme/scripts` "behavior.js") next to
+> `shell/script`, and `behavior/css` (the float layer) before `shell/css`. `shell/script` only
+> fills and reveals the chip. Measured: `node test/shell.mjs` at 390 / 1440.
+
 # Shell components (0.1.0)
 
 `cloud-kotoba-dds.shell` — the app-shell chrome pattern from [design.md](design.md)

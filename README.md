@@ -26,6 +26,13 @@ python3 -m http.server 8766 --bind 127.0.0.1
 
 **0.3.0-alpha** の再利用可能な会話コンポーネントを追加しました。会話一覧・メッセージ・入力欄・モデル選択・共通スタイルとDOM描画を提供し、Murakumoで利用しています。[組み込み方とAPI](CHAT_COMPONENTS.md)、[最小の組み込み例](examples/chat.html)を参照してください。認証・生成API・料金・履歴保存は利用側から接続します。
 
+## Theme — 既定の design token と document 既定（2026-09-16）
+
+**`cloud-kotoba-dds.theme`** が Kotoba アプリの既定: `--hig-*` 契約 128 個（jp-go-dds の bridge、
+app.itonami.cloud が宣言する 117 を包含）、document 既定 CSS、host が配る 1 本の stylesheet と
+script 群、light / dark / system は shinkansen の契約。[THEME.md](THEME.md)。
+settings sheet（`cloud-kotoba-dds.sheet`）も同日 component 化。
+
 ## Shell の chrome（top bar・account entry）
 
 **Shell component 0.1.0**（`cloud-kotoba-dds.shell`）は、スクロールしても動かない top bar と、

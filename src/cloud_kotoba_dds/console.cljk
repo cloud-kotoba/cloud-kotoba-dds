@@ -23,7 +23,7 @@
   ".ck-console__note{color:var(--hig-color-secondary-label);font-size:var(--hig-text-caption1-font-size)}"
   ".ck-console__badge{display:inline-block;padding:2px var(--hig-spacing-2,6px);border-radius:var(--hig-radius-xs,6px);font-size:var(--hig-text-caption2-font-size);font-weight:700;border:1px solid var(--hig-color-separator);color:var(--hig-color-secondary-label)}"
   ".ck-console__badge[data-state=ok]{border-color:var(--hig-color-tint);color:var(--hig-color-tint)}"
-  ".ck-console__badge[data-state=action]{color:var(--hig-color-primitive-orange-700,#c25700);border-color:currentColor}"
+  ".ck-console__badge[data-state=action]{color:var(--hig-palette-orange,var(--color-primitive-orange-800));border-color:currentColor}"
   ".ck-console__badge[data-state=error]{color:var(--hig-color-label);border-color:var(--hig-color-label)}"))
 
 (defn panel

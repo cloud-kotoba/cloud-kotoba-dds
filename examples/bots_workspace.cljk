@@ -17,6 +17,7 @@
    an empty stylesheet: a page without primitives measures as broken and
    would report it as ours."
   (:require [cloud-kotoba-dds.bots :as bots]
+            [jp-go-dds.behavior :as behavior]
             [cloud-kotoba-dds.bot :as bot]
             [cloud-kotoba-dds.shell :as shell]
             [cloud-kotoba-dds.switch :as switch]
@@ -137,7 +138,7 @@
     :lang "ja"
     :css dds-css
     :dark? true
-    :app-css (str tokens/bridge-css "\n" switch/css "\n" bot-css "\n" shell/css "\n" styles/bots-css "\n"
+    :app-css (str tokens/bridge-css "\n" behavior/css "\n" switch/css "\n" bot-css "\n" shell/css "\n" styles/bots-css "\n"
                   "body{margin:0;height:100dvh;display:flex;flex-direction:column;font-family:system-ui,sans-serif;color:var(--hig-color-label);background:var(--hig-color-system-background)}"
                   ".ex-top{display:flex;align-items:center;justify-content:space-between;gap:var(--hig-spacing-3);padding:var(--hig-spacing-2) var(--hig-spacing-4);border-bottom:1px solid var(--hig-color-separator)}"
                   ".ex-top h1{margin:0;font-size:var(--hig-text-subheadline-font-size)}"
@@ -157,6 +158,8 @@
    [:main {:id "main"} view]
    [:p {:id "sent" :class "dads-visually-hidden" :aria-live "polite"}]
    [:script interaction/runtime]
+   ;; the behavior layer: the account menu and the theme switch's arrows
+   [:script behavior/script]
    [:script bot-js]
    [:script shell/script]
    [:script bots/script]

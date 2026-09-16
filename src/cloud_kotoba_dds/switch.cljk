@@ -33,9 +33,12 @@
    the runtime repaints from the stored choice before anyone clicks."
   [{:keys [id labels attrs current] :or {current :system}}]
   (let [labels (merge default-labels labels)]
+    ;; data-behavior=radiogroup: arrows move AND choose (jp-go-dds.behavior
+    ;; clicks the next radio, so the runtime's theme/set fires) and the
+    ;; roving tabindex follows aria-checked — ship behavior/script
     (into [:div (merge {:class "ck-switch ck-switch--theme" :role "radiogroup"
                         :aria-label (:theme labels) :data-ck-switch "theme"
-                        :data-hydrate "theme-switch"}
+                        :data-hydrate "theme-switch" :data-behavior "radiogroup"}
                        (when id {:id id}) attrs)]
           (for [mode theme/modes]
             [:button (merge {:type "button" :role "radio"
