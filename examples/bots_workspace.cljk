@@ -1,0 +1,146 @@
+(ns examples.bots-workspace
+  "Generates examples/bots-workspace.html — the Bots workspace pattern
+   (`cloud-kotoba-dds.bots`) on the jp-go-dds page with the dark layer and
+   the λ theme toggle, filled with fixture Bots — then MEASURES it with the
+   shinkansen framework's document judge (`shinkansen.audit`, 13 axes) and
+   the viewport contract (`shinkansen.viewport`). The number is printed and
+   the floor is enforced: below `floor` the generator exits 1, so a layout
+   change that breaks the document contract cannot land as a green build.
+
+   Run from the repo root (kbb, SCI backend), with the sibling checkouts on
+   the classpath:
+
+     kbb --backend sci --classpath src:resources:../jp-go-digital-design-system/src:../html/src:../css/src:../text/src:../shinkansen/src examples/bots_workspace.cljk
+
+   `dds.css` (the vendored DADS primitives) is read from the jp-go-dds
+   checkout beside this one, or from JP_GO_DDS_CSS. Missing is an error, not
+   an empty stylesheet: a page without primitives measures as broken and
+   would report it as ours."
+  (:require [cloud-kotoba-dds.bots :as bots]
+            [cloud-kotoba-dds.bot :as bot]
+            [cloud-kotoba-dds.styles :as styles]
+            [jp-go-dds.page :as page]
+            [jp-go-dds.tokens :as tokens]
+            [jp-go-dds.theme-toggle :as theme]
+            [shinkansen.audit :as audit]
+            [shinkansen.viewport :as viewport]
+            ["node:fs" :as fs]
+            ["node:path" :as path]))
+
+(def floor 90.0)
+
+(defn- read-first [candidates what]
+  (or (some (fn [p] (when (and p (.existsSync fs p)) (.readFileSync fs p "utf8"))) candidates)
+      (throw (ex-info (str what " not found; looked at " (pr-str (remove nil? candidates)))
+                      {:type :example/resource-missing}))))
+
+(def dds-css
+  (read-first [(some-> js/process.env.JP_GO_DDS_CSS)
+               (path/resolve "../jp-go-digital-design-system/resources/jp_go_dds/dds.css")]
+              "jp-go-dds dds.css"))
+
+(def bot-css (read-first [(path/resolve "resources/cloud_kotoba_dds/bot.css")] "bot.css"))
+(def bot-js (read-first [(path/resolve "resources/cloud_kotoba_dds/bot.js")] "bot.js"))
+
+;; ---------- fixture ----------
+
+(def fixture-bots
+  [{:id "bot-tabi-pm" :name "itonami 旅 · Product Manager" :color :violet :glyph :bean
+    :status :blocked :meta "error · 次回 9/9 16:48" :time "9/11" :unread? true :current? true}
+   {:id "bot-shigoto-bd" :name "itonami 仕事 · Business Developer" :color :blue :glyph :circle
+    :status :idle :meta "待機中 · 次回 9/11 00:55" :time "9/11" :unread? true}
+   {:id "bot-tabi-bo" :name "itonami 旅 · Business Operator" :color :blue :glyph :wide
+    :status :idle :meta "待機中 · 次回 9/10 21:17" :time "9/11" :unread? true}
+   {:id "bot-isekai-qa" :name "network isekai · QA" :color :green :glyph :cloud
+    :status :working :meta "作業中 · 前提待ち" :time "9/16"}])
+
+(defn- avatar [{:keys [id color glyph status]}]
+  (bot/avatar {:id id :color color :glyph glyph :status status}))
+
+(def current (first fixture-bots))
+
+(def view
+  (bots/workspace {:aria-label "Bots" :id "bots"}
+    (bots/rail {:aria-label "Bot 一覧"}
+      (bots/rail-search {:id "bots-search" :placeholder "Bot を検索" :aria-label "Bot を検索"})
+      (bots/rail-list {}
+        (apply bots/rail-group {} "過去7日間"
+               (for [b (take 3 fixture-bots)]
+                 (bots/rail-item (assoc b :avatar (avatar b) :attrs {:data-bot-id (:id b)}))))
+        (apply bots/rail-group {} "今日"
+               (for [b (drop 3 fixture-bots)]
+                 (bots/rail-item (assoc b :avatar (avatar b) :attrs {:data-bot-id (:id b)})))))
+      (bots/rail-launcher {}
+        (bots/launcher-link {:href "#apps" :label "App" :mark "▦"})
+        (bots/launcher-link {:href "#marketplace" :label "マーケットプレイス" :mark "⊞"})
+        (bots/launcher-link {:href "#account" :label "Itonami User" :mark "I"})))
+    (bots/main {}
+      (bots/titlebar {:refs (bots/chip {:label "参照 0" :as :button :attrs {:id "refs"}})
+                      :avatar (avatar current)
+                      :name (:name current)
+                      :status (:meta current)
+                      :actions [(bots/rail-toggle {:id "rail-toggle" :aria-controls "bots"} "一覧")
+                                (bots/action {:label "操作" :attrs {:id "ops"}})
+                                (bots/action {:label "＋ 新しい Bot" :primary? true :attrs {:id "new-bot"}})]})
+      (bots/disclosure {:id "profile"} "この Bot のプロフィール・学習"
+        (bots/bubble {:role :bot}
+          "/ 7911 の 2 repo が実装を持つ。じゃらんと同じ面。 Product-specific focus: blueprint と実装の差を 1 つ名指しし、次に閉じる面を決める。 Contract: - Advance one verified step using admitted repository evidence. - Reuse recorded evidence; do not repeat discovery. - Separate observed facts from proposals; external effects require their grant. - If blocked, name one exact prerequisite once and stop."))
+      (bots/feed {:id "feed" :aria-label "この Bot の記録"}
+        (bots/feed-note {} [:span "自動確認の内部指示"])
+        (bots/result-card {:title "自動確認の結果" :tag "確認済み" :tag-state :ok
+                           :summary "同じステップの操作が続き、検証まで進んでいません。"
+                           :more [:a {:href "#full-1"} "全文を見る"]})
+        (bots/feed-note {} [:span "自動確認の内部指示"])
+        (bots/result-card {:title "自動確認の結果" :tag "失敗 ×21" :tag-state :error
+                           :summary "モデルへの接続に失敗しました（HTTP 503）。依頼を保留しています。"
+                           :more [:a {:href "#full-2"} "全文を見る"]})
+        (bots/bubble {:role :person} "次のステップは？"))
+      (bots/composer {:id "composer" :aria-label "この Bot に頼む"}
+        [:label {:for "prompt" :class "dads-visually-hidden"} "依頼"]
+        (bots/prompt {:id "prompt" :placeholder (str (:name current) " に頼む")})
+        (bots/send {:id "send"} "送信")
+        (bots/composer-hint {} "Enter で改行 · ⌘ / Ctrl + Enter で送信")))))
+
+(def demo-script
+  "cloudKotobaBot.mountAll();
+document.getElementById('rail-toggle').onclick=function(){var w=document.getElementById('bots');var on=w.classList.toggle('show-rail');this.setAttribute('aria-expanded',String(on));};
+document.getElementById('composer').onsubmit=function(e){e.preventDefault();};")
+
+(def html
+  (page/->page
+   {:title "Bots workspace example"
+    :description "cloud-kotoba-dds bots pattern — light and dark on one document"
+    :lang "ja"
+    :css dds-css
+    :dark? true
+    :app-css (str tokens/bridge-css "\n" theme/css "\n" bot-css "\n" styles/bots-css "\n"
+                  "body{margin:0;height:100dvh;display:flex;flex-direction:column;font-family:system-ui,sans-serif;color:var(--hig-color-label);background:var(--hig-color-system-background)}"
+                  ".ex-top{display:flex;align-items:center;justify-content:space-between;gap:var(--hig-spacing-3);padding:var(--hig-spacing-2) var(--hig-spacing-4);border-bottom:1px solid var(--hig-color-separator)}"
+                  ".ex-top h1{margin:0;font-size:var(--hig-text-subheadline-font-size)}"
+                  "#bots{flex:1;min-height:0}"
+                  ".dads-visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}")
+    :head [[:script theme/script]]}
+   [:header {:class "ex-top"}
+    [:h1 "Bots workspace — cloud-kotoba-dds"]
+    theme/control]
+   view
+   [:script bot-js]
+   [:script demo-script]))
+
+(def out "examples/bots-workspace.html")
+(.writeFileSync fs out html)
+
+;; ---------- measure ----------
+
+(let [report (audit/score-document {:file out :html html} {})
+      vp (viewport/audit {:file out :html html})
+      overall (:overall report)]
+  (println (str "SCANNED\t1\tdocument " out " (" (count html) " bytes)"))
+  (println (str "shinkansen.audit overall " (.toFixed overall 1) " / floor " floor))
+  (doseq [f (:findings report)]
+    (println (str "  finding " (:axis f) " score " (:score f) " — " (:finding f))))
+  (doseq [u (:unmeasured report)]
+    (println (str "  unmeasured " (:axis u) " — " (:why u))))
+  (println (str "shinkansen.viewport " (if (:ok vp) "ok" (str "problems " (pr-str (:problems vp))))))
+  (when (or (< overall floor) (not (:ok vp)))
+    (set! (.-exitCode js/process) 1)))

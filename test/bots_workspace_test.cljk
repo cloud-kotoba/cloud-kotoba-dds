@@ -1,0 +1,86 @@
+(ns bots-workspace-test
+  "The Bots workspace pattern, on the kbb engine.
+
+    kbb --backend sci --classpath src:test:../jp-go-digital-design-system/src:../text/src:../css/src:../html/src test/bots_workspace_test.cljk
+
+  Two things the browser fixture cannot tell you: that every token the
+  stylesheet asks for is one the jp-go-dds bridge actually carries (an unmapped
+  `--hig-*` resolves to NOTHING, silently — kotoba-uiux rule 2), and that no
+  colour literal crept in (the dark surfaces are derived, so a literal would be
+  the one thing the inversion cannot follow). Both are counted, not grepped."
+  (:require [cljs.test :refer [deftest is testing run-tests]]
+            [kotoba.lang.text :as str]
+            [cloud-kotoba-dds.bots :as bots]
+            [cloud-kotoba-dds.styles :as styles]
+            [jp-go-dds.tokens :as tokens]))
+
+(defn- flatten-hiccup [h]
+  (tree-seq (fn [x] (or (vector? x) (seq? x))) seq h))
+
+(defn- attrs-of [h]
+  (->> (flatten-hiccup h) (filter map?) vec))
+
+(deftest components-carry-their-hooks
+  (let [view (bots/workspace {:aria-label "Bots"}
+               (bots/rail {}
+                 (bots/rail-search {:id "s"})
+                 (bots/rail-list {}
+                   (bots/rail-group {} "今日"
+                     (bots/rail-item {:name "A" :meta "待機中" :time "9/16" :unread? true :current? true
+                                      :attrs {:data-bot-id "a"}})
+                     (bots/rail-item {:name "B"})))
+                 (bots/rail-launcher {} (bots/launcher-link {:href "#x" :label "App" :mark "▦"})))
+               (bots/main {}
+                 (bots/titlebar {:refs (bots/chip {:label "参照 0"}) :name "A" :status "error"
+                                 :actions [(bots/action {:label "操作"})
+                                           (bots/action {:label "＋" :primary? true})]})
+                 (bots/disclosure {} "profile" [:p "body"])
+                 (bots/feed {:id "f"}
+                   (bots/feed-note {} [:span "note"])
+                   (bots/result-card {:title "結果" :tag "確認済み" :tag-state :ok :summary "s" :more [:a {:href "#m"} "全文"]})
+                   (bots/bubble {:role :person} "hi"))
+                 (bots/composer {:id "c"}
+                   (bots/prompt {:id "p"})
+                   (bots/send {} "送信")
+                   (bots/composer-hint {} "hint"))))
+        hooks (set (keep :data-ck-bots (attrs-of view)))]
+    (is (= #{"workspace" "rail" "search" "list" "group" "group-label" "row" "item" "name" "time" "meta" "unread"
+             "launcher" "launch" "main" "titlebar" "chip" "title-name" "title-status" "action"
+             "disclosure" "feed" "note" "card" "tag" "summary" "bubble" "composer" "prompt" "send" "hint"}
+           hooks)
+        "every part is addressable by data-ck-bots")
+    (testing "the current row is marked for both CSS and assistive tech"
+      (let [items (filter #(= "item" (:data-ck-bots %)) (attrs-of view))]
+        (is (= ["true" nil] (mapv :aria-current items)))
+        (is (str/includes? (:class (first items)) "is-current"))
+        (is (not (str/includes? (:class (second items)) "is-current")))))
+    (testing "host attrs land on the control, not the row"
+      (is (= "a" (:data-bot-id (first (filter #(= "item" (:data-ck-bots %)) (attrs-of view)))))))
+    (testing "unread is announced, not just drawn"
+      (is (= "未読" (:aria-label (first (filter #(= "unread" (:data-ck-bots %)) (attrs-of view)))))))
+    (testing "the tag names its state"
+      (is (= "ok" (:data-state (first (filter #(= "tag" (:data-ck-bots %)) (attrs-of view)))))))))
+
+(deftest stylesheet-holds-the-token-contract
+  (let [css styles/bots-css
+        asked (set (map second (re-seq #"var\((--hig-[a-z0-9-]+)" css)))
+        carried (set (keys tokens/hig->dads))
+        missing (remove carried asked)]
+    (println (str "SCANNED\t" (count asked) "\thig tokens asked by bots-css"))
+    (is (pos? (count asked)))
+    (is (empty? missing) (str "tokens the bridge does not carry: " (pr-str missing)))
+    (is (empty? (re-seq #"#[0-9a-fA-F]{3,8}\b" css)) "no colour literal in bots-css")
+    (is (empty? (re-seq #"(?<![-a-z])(white|black)(?![-a-z])" css)) "no named colour in bots-css")
+    (testing "dark surfaces are derived from the light snapshot, never new values"
+      (is (= 4 (count (re-seq #"light-dark\(" css))) "ground / raised / hover / border")
+      (is (every? #(str/includes? % "--dds-light-") (re-seq #"light-dark\([^;]+;" css))))
+    (testing "the two width bands the pattern promises"
+      (is (str/includes? css "@media(max-width:47.99rem)"))
+      (is (str/includes? css "@media(max-width:30rem)")))))
+
+(defmethod cljs.test/report [:cljs.test/default :end-run-tests] [m]
+  (println "bots-workspace-test" (select-keys m [:test :pass :fail :error]))
+  (when-not (cljs.test/successful? m)
+    (set! (.-exitCode js/process) 1)))
+
+(run-tests)
