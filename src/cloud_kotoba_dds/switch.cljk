@@ -83,8 +83,12 @@
    `theme/set` is the runtime's."
   (str
    "(function(){if(!globalThis.shinkansen)return;"
-   "shinkansen.hydrate('theme-switch',function(root){"
+   "function paint(){shinkansen.hydrate('theme-switch',function(root){"
    "shinkansen.theme.onChange(function(s){var opts=root.querySelectorAll('[data-mode]');"
    "for(var i=0;i<opts.length;i++){opts[i].setAttribute('aria-checked',opts[i].getAttribute('data-mode')===s.mode?'true':'false');}"
-   "root.setAttribute('data-effective',s.effective);});});"
+   "root.setAttribute('data-effective',s.effective);});});}"
+   ;; a host may ship this in <head> (cloud-itonami-app does): hydrate once the
+   ;; switch exists, not before — measured 2026-09-16, the switch stayed on
+   ;; `system` after a dark dispatch because hydrate found no element yet
+   "if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',paint);else paint();"
    "})();"))
