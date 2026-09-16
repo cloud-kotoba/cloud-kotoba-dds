@@ -92,9 +92,9 @@
     (is (empty? missing) (str "tokens the bridge does not carry: " (pr-str missing)))
     (is (empty? (re-seq #"#[0-9a-fA-F]{3,8}\b" css)) "no colour literal in bots-css")
     (is (empty? (re-seq #"(?<![-a-z])(white|black)(?![-a-z])" css)) "no named colour in bots-css")
-    (testing "dark surfaces are derived from the light snapshot, never new values"
-      (is (= 4 (count (re-seq #"light-dark\(" css))) "ground / raised / hover / border")
-      (is (every? #(str/includes? % "--dds-light-") (re-seq #"light-dark\([^;]+;" css))))
+    (testing "dark surfaces come from cloud-kotoba-dds.tokens, not from this stylesheet"
+      (is (empty? (re-seq #"light-dark\(" css)) "the lifts moved to the token layer (2026-09-16)")
+      (is (every? #(str/includes? css (str "var(--ck-surface-" % ")")) ["ground" "raised" "hover" "border"])))
     (testing "the two width bands the pattern promises"
       (is (str/includes? css "@media(max-width:47.99rem)"))
       (is (str/includes? css "@media(max-width:30rem)")))))

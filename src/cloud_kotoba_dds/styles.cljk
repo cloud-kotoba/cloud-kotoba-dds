@@ -6,25 +6,22 @@
 
 (def bots-css
   "The Bots workspace pattern (`cloud-kotoba-dds.bots`). Load after the
-   jp-go-dds token bridge and, for dark, after `jp-go-dds.dark` (or a host
-   appearance layer that inverts the primitives): the surface lifts read the
-   `--dds-light-*` snapshot names that layer emits.
-
-   Surfaces are four tokens on the root — ground, raised, hover, border — so a
-   host retunes the whole pattern by redefining four custom properties on
-   `.ck-bots`, not by overriding rules. In light they are the DADS semantic
-   surfaces; in dark `light-dark()` lifts raised above ground (the primitive
-   inversion alone lands both on the same grey, which reads as flat) using
-   `color-mix` over ramp steps — derived, not drawn. No colour literal here."
+   jp-go-dds token bridge and `cloud-kotoba-dds.tokens/css` (the surface
+   tokens — ground / raised / hover / border, lifted in dark — live there
+   since 2026-09-16; `--ck-bots-*` are aliases onto them). A host retunes the
+   pattern by redefining the tokens, not by overriding rules. No colour
+   literal here."
   (str
    ;; --- surface tokens ---------------------------------------------------
    ".ck-bots{"
-   "--ck-bots-ground:light-dark(var(--hig-color-system-grouped-background),color-mix(in srgb,var(--dds-light-neutral-solid-gray-900) 70%,var(--dds-light-neutral-black)));"
-   "--ck-bots-raised:light-dark(var(--hig-color-system-background),var(--dds-light-neutral-solid-gray-900));"
-   "--ck-bots-hover:light-dark(var(--hig-color-quaternary-system-fill),color-mix(in srgb,var(--dds-light-neutral-solid-gray-900) 60%,var(--dds-light-neutral-solid-gray-800)));"
-   "--ck-bots-border:light-dark(var(--hig-color-separator),color-mix(in srgb,var(--dds-light-neutral-solid-gray-900) 45%,var(--dds-light-neutral-solid-gray-800)));"
-   "--ck-bots-text:var(--hig-color-label);--ck-bots-muted:var(--hig-color-secondary-label);--ck-bots-accent:var(--hig-color-tint);"
-   "--ck-bots-radius:var(--hig-radius-sm);--ck-bots-radius-lg:var(--hig-radius-md);--ck-bots-radius-pill:var(--hig-radius-capsule);"
+   ;; surfaces are cloud-kotoba-dds.tokens; these names stay as aliases so
+   ;; a host that retuned --ck-bots-* keeps its retune
+   "--ck-bots-ground:var(--ck-surface-ground);"
+   "--ck-bots-raised:var(--ck-surface-raised);"
+   "--ck-bots-hover:var(--ck-surface-hover);"
+   "--ck-bots-border:var(--ck-surface-border);"
+   "--ck-bots-text:var(--ck-text);--ck-bots-muted:var(--ck-text-muted);--ck-bots-accent:var(--ck-accent);"
+   "--ck-bots-radius:var(--ck-radius-sm);--ck-bots-radius-lg:var(--ck-radius-md);--ck-bots-radius-pill:var(--ck-radius-pill);"
    "--ck-bots-rail-width:19rem;"
    "display:grid;grid-template-columns:var(--ck-bots-rail-width) minmax(0,1fr);height:100%;min-height:0;color:var(--ck-bots-text);background:var(--ck-bots-ground);font-size:var(--hig-text-subheadline-font-size);line-height:1.6}"
    ".ck-bots *{box-sizing:border-box}"
