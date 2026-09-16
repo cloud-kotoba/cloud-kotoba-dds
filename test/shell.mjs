@@ -46,14 +46,21 @@ try{for(const width of [390,1440]){
  assert.ok(menu.inViewport,'menu inside the viewport '+JSON.stringify(menu));
  if(width>=1024)assert.ok(menu.overlapsRail,'on the rail band the menu floats over the rail '+JSON.stringify(menu));
  // Escape closes and returns focus to the chip; click outside closes
+ // the menu is jp-go-dds.behavior's since 2026-09-16: the popup's hidden= is the state
+ const menuOpen=()=>page.evaluate(()=>!document.querySelector('[data-ck-account=session] [data-menu-popup]').hidden);
+ assert.equal(await menuOpen(),true,'menu open');
+ assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('role')),'menuitem','focus moved into the menu');
+ await page.keyboard.press('ArrowDown');
+ assert.equal(await page.evaluate(()=>document.activeElement.textContent.trim()),'Billing','ArrowDown to the second item');
  await page.keyboard.press('Escape');await page.waitForTimeout(50);
- assert.equal(await page.evaluate(()=>document.querySelector('[data-ck-account=session]').open),false);
+ assert.equal(await menuOpen(),false,'Escape closed the menu');
  assert.equal(await page.evaluate(()=>document.activeElement.classList.contains('ck-account__chip')),true,'focus returned to the chip');
+ assert.equal(await page.evaluate(()=>document.querySelector('.ck-account__chip').getAttribute('aria-expanded')),'false');
  await page.locator('.ck-account__chip').click();await page.waitForTimeout(50);
  await page.mouse.click(width/2,300);await page.waitForTimeout(50);
- assert.equal(await page.evaluate(()=>document.querySelector('[data-ck-account=session]').open),false,'click outside closed the menu');
+ assert.equal(await menuOpen(),false,'click outside closed the menu');
  // sign-out stays the host's
  await page.locator('.ck-account__chip').click();await page.locator('#sign-out').click();
  assert.equal(await page.locator('#credit').textContent(),'signed out');
- assert.deepEqual(errors,[]);await page.close();console.log('PASS',width,'sticky top bar, floating account menu (rail unmoved), Escape/outside close, host sign-out');
+ assert.deepEqual(errors,[]);await page.close();console.log('PASS',width,'sticky top bar, floating account menu (rail unmoved) on jp-go-dds.behavior, ArrowDown/Escape/outside, host sign-out');
 }}finally{await browser.close();server.closeAllConnections();server.close();}

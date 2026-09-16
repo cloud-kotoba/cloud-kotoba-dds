@@ -49,9 +49,30 @@
                :production-adoption ["kotoba-lang/app-kotoba-cloud"]}
   :settings-sheet {:element :dialog :modality :modal
                    :compact :bottom-sheet :expanded :center-dialog
-                   :initial-focus :close-button :escape :close-and-return-focus
+                   :initial-focus :heading :escape :close-and-return-focus
                    :backdrop-click :no-action
-                   :gesture-only-actions false}
+                   :gesture-only-actions false
+                   ;; the component (2026-09-16): cloud-kotoba-dds.sheet on
+                   ;; jp-go-dds.behavior's dialog — the platform's trap /
+                   ;; Escape / focus return, DADS modal-dialog markup
+                   :status :reusable :component :sheet/settings-sheet
+                   :source "src/cloud_kotoba_dds/sheet.cljk"
+                   :behavior :jp-go-dds.behavior/dialog
+                   :measured-by :shinkansen.audit/behaviors-delivered}
+  :theme {:status :reusable :source "src/cloud_kotoba_dds/theme.cljk"
+          ;; the default tokens and document defaults of every Kotoba app:
+          ;; the --hig-* contract as jp-go-dds's bridge (128), the chrome
+          ;; defaults app.itonami.cloud's bots app set by hand, the one
+          ;; stylesheet and the scripts a host ships, light / dark / system
+          ;; on the shinkansen contract (default system)
+          :tokens :jp-go-dds.tokens/hig->dads
+          :theme-contract :shinkansen.theme
+          :default-mode :system
+          :production-adoption ["kotoba-lang/app-kotoba-cloud"]}
+  :behavior {:runtime :jp-go-dds.behavior/script
+             :markers [:dialog :menu :tabs :disclosure :radiogroup :toast :combobox]
+             :hosts [:shell/account-entry :switch/theme-switch :sheet/settings-sheet]
+             :measured-by :shinkansen.audit/behaviors-delivered}
   :composer {:states [:idle :invalid :offline :running :complete]
              :enter :newline :meta-or-ctrl-enter :try-sample
              :ime-composition :never-submit
@@ -68,11 +89,17 @@
   :content-link {:content-id :cidv1-raw-sha256 :ui-locale-changes-content false
                  :authority :none :network-resolution :not-implemented}
   :motion {:press-ms 100 :reveal-ms 180 :panel-ms 240
+            ;; the same three numbers are --hig-motion-press / -reveal /
+            ;; -panel (jp-go-dds.tokens/motion); theme_test asserts equality
+            :source :jp-go-dds.tokens/motion
             :reduced-motion [:system :user] :reduced-behavior :immediate}}
  :touch {:target-css-px 44 :coarse-pointer-target-css-px 48
          :touch-action :manipulation :drag-only-actions false
          :scroll-capture false :native-selection-preserved true
          :native-zoom-preserved true :native-edge-back-preserved true}
  :verification {:automated-viewport-targets [320 360 390 768 1280]
+                ;; the width bands are jp-go-dds.tokens/breakpoints =
+                ;; shinkansen.viewport/breakpoints (theme_test asserts)
+                :bands :jp-go-dds.tokens/breakpoints
                 :device-required [:ios-safari-keyboard :android-chrome-keyboard :voiceover :talkback]
                 :not-certified [:rtl :all-colors-contrast :real-device-ime :haptics]}}

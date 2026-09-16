@@ -1,0 +1,71 @@
+(ns theme-test
+  "The default tokens and document defaults (cloud-kotoba-dds.theme) — one
+   vocabulary across the contract data, the custom properties, and the two
+   frameworks that read the same numbers.
+
+    kbb --backend sci --classpath src:test:../jp-go-digital-design-system/src:../text/src:../shinkansen/src:../css/src:../html/src test/theme_test.cljk"
+  (:require [cljs.test :refer [deftest is testing run-tests]]
+            [kotoba.lang.text :as str]
+            [clojure.edn :as edn]
+            ["node:fs" :as fs]
+            [cloud-kotoba-dds.theme :as theme]
+            [cloud-kotoba-dds.sheet :as sheet]
+            [jp-go-dds.behavior :as behavior]
+            [jp-go-dds.tokens :as tokens]
+            [shinkansen.viewport :as viewport]
+            [shinkansen.audit :as audit]
+            [html.core :as html]))
+
+(def contracts (edn/read-string (str (fs/readFileSync "contracts.edn" "utf8"))))
+
+(deftest the-contract-and-the-tokens-are-one-vocabulary
+  (testing "contracts.edn :motion is jp-go-dds.tokens/motion, number for number"
+    (is (= (select-keys (:motion (:components contracts)) [:press-ms :reveal-ms :panel-ms]) theme/motion))
+    (is (= :jp-go-dds.tokens/motion (get-in contracts [:components :motion :source]))))
+  (testing "shinkansen.viewport's bands are the tokens' bands"
+    (is (= viewport/breakpoints theme/breakpoints))
+    (is (= :jp-go-dds.tokens/breakpoints (get-in contracts [:verification :bands]))))
+  (testing "the tokens are the full contract app.itonami.cloud declares (measured 117 there, 71 on kotoba.cloud before)"
+    (is (= 128 (count theme/tokens)))
+    (doseq [k ["--hig-text-headline-font-weight" "--hig-text-display2-font-size" "--hig-palette-teal"
+               "--hig-motion-press" "--hig-z-float" "--hig-breakpoint-xs"]]
+      (is (contains? theme/tokens k) k))))
+
+(deftest the-stylesheet-is-in-cascade-order
+  (let [css theme/css
+        at (fn [needle] (let [i (str/index-of css needle)] (is (some? i) needle) (or i -1)))]
+    (is (< (at ":root { --hig-") (at "*,*::before,*::after{box-sizing") (at "[data-behavior] [hidden]") (at ".ck-topbar[data-chrome=top]") (at ".ck-switch{") (at ".ck-sheet"))
+        "skin → chrome → behavior → shell → switch → sheet")
+    (is (str/includes? css ".ck-topbar[data-chrome=top]{position:sticky;top:0;z-index:var(--hig-z-sticky,20)") "the shell reads the layer token")
+    (is (not (re-find #"#[0-9a-fA-F]{3,8}\b" (str/replace css #"box-shadow:[^;}]*" ""))) "no colour literal outside a shadow")
+    (testing "stylesheet = dds + dark mirror + css"
+      (let [dds ":root {\n  --color-neutral-white: #ffffff;\n  --color-neutral-black: #000000;\n  --color-neutral-solid-gray-800: #333333;\n  --color-neutral-solid-gray-50: #f2f2f2;\n}\n.dads-button{color:var(--color-neutral-white)}"
+            full (theme/stylesheet dds)]
+        (is (str/starts-with? full dds))
+        (is (str/includes? full "data-theme"))
+        (is (str/ends-with? full theme/css))))))
+
+(deftest the-head-and-the-scripts-are-a-shinkansen-document
+  (let [h (theme/head {})]
+    (is (= [:meta {:name "viewport" :content "width=device-width, initial-scale=1, viewport-fit=cover"}] (first h)))
+    (is (= [:script {:src "/js/theme.js"}] (nth h 2)) "the stored choice before paint, blocking, first")
+    (is (= [:link {:rel "stylesheet" :href "/css/site.css"}] (nth h 3)))
+    (is (= ["/js/shinkansen.js" "/js/behavior.js" "/js/shell.js" "/js/switch.js" "/js/menu.js" "/js/status.js"] (map #(get-in % [1 :src]) (drop 4 h))) "deferred, runtime first"))
+  (is (= (set (keys theme/scripts)) (into #{"theme.js"} theme/deferred-scripts)))
+  (is (= behavior/script (get theme/scripts "behavior.js")))
+  (is (str/includes? (get theme/scripts "shinkansen.js") "on('theme/set'") "the interaction runtime answers theme/set"))
+
+(deftest the-settings-sheet-is-a-dialog-on-the-behavior-layer
+  (let [h (html/->html (sheet/settings-sheet {:id "settings" :heading "設定"} [:p "x"]))]
+    (is (str/starts-with? h "<dialog "))
+    (doseq [a ["data-behavior=\"dialog\"" "data-sheet=\"settings\"" "class=\"dads-modal-dialog ck-sheet\"" "aria-labelledby=\"settings-title\"" "command=\"close\" commandfor=\"settings\""]]
+      (is (str/includes? h a) a))
+    (is (not (str/includes? h "data-backdrop-click")) "backdrop click does nothing (contracts.edn :backdrop-click :no-action)"))
+  (testing "measured by the audit: the runtime shipped and the markup complete → 1.0; without the runtime → named"
+    (let [doc (fn [scripts] (str "<html><head></head><body><main id=\"main\">" (html/->html (sheet/settings-sheet {:id "s" :heading "設定"} [:p "x"])) scripts "</main></body></html>"))
+          ctx {:assets #{} :documents #{} :csp :none}
+          ax (fn [r] (first (filter #(= :behaviors-delivered (:id %)) (:axes r))))]
+      (is (= 1.0 (:score (ax (audit/score-document {:file "s" :html (doc (str "<script>" behavior/script "</script>"))} ctx)))))
+      (is (str/includes? (:finding (ax (audit/score-document {:file "s" :html (doc "")} ctx))) "data-behavior=dialog#s: no shipped script selects it")))))
+
+(run-tests)
