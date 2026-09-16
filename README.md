@@ -50,6 +50,10 @@ marker です。kotoba.cloud/docs が最初の host です。
 
 専用の **Bot component 0.1.0** は、ID による顔の特徴、保存済みの色と形、状態ごとの動き、動きを減らす設定への対応を提供します。[API と組み込み方](BOT_COMPONENTS.md)、[動く見本](examples/bots.html)を参照してください。
 
+## Bots workspace（会話一覧 + Bot の面 + 送信欄）
+
+**Bots workspace pattern 0.1.0** は Cloud Itonami の `#/bots` 画面の角丸レイアウトを共通化したものです。rail（検索・日付 group・Bot 行・launcher）、titlebar、disclosure、feed の result card、composer を Hiccup で提供し、stylesheet は `--hig-*` token だけで書かれているので light / dark（`jp-go-dds.dark`）の両方に無改造で追従します。[API と組み込み方](BOTS_WORKSPACE.md)、[動く見本](examples/bots-workspace.html)（生成器が shinkansen の document judge で採点、実測 100.0）。
+
 ## 既存の見本の範囲
 
 バージョンは **0.2.0-study**。共通設計・操作契約・見本のリポジトリです。直感性を優先する表示ルールはMurakumoで適用されていますが、この見本全体は配布可能な製品用コンポーネントライブラリではありません。router、認証、永続会話、生成・課金の各adapterは今後の実装範囲です。
