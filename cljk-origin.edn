@@ -16,4 +16,8 @@
   "src/cloud_kotoba_dds/switch.cljk" ".cljc"
   "src/cloud_kotoba_dds/tokens.cljk" ".cljc"
   "src/cloud_kotoba_dds/menu.cljk" ".cljc"
-  "src/cloud_kotoba_dds/status.cljk" ".cljc"}}
+  "src/cloud_kotoba_dds/status.cljk" ".cljc"
+  "src/cloud_kotoba_dds/sheet.cljk" ".cljc"
+  "src/cloud_kotoba_dds/theme.cljk" ".cljc"
+  "src/cloud_kotoba_dds/composer.cljk" ".cljc"
+  "src/cloud_kotoba_dds/thread.cljk" ".cljc"}}

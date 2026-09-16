@@ -25,6 +25,8 @@
             [cloud-kotoba-dds.menu :as menu]
             [cloud-kotoba-dds.status :as status]
             [cloud-kotoba-dds.styles :as styles]
+            [cloud-kotoba-dds.composer :as composer]
+            [cloud-kotoba-dds.thread :as thread]
             [shinkansen.interaction :as interaction]
             [shinkansen.theme :as theme-contract]
             [jp-go-dds.page :as page]
@@ -107,13 +109,14 @@
         (bots/result-card {:title "自動確認の結果" :tag "失敗 ×21" :tag-state :error
                            :summary "モデルへの接続に失敗しました（HTTP 503）。依頼を保留しています。"
                            :more [:a {:href "#full-2"} "全文を見る"]})
-        (bots/bubble {:role :person} "次のステップは？"))
-      (bots/composer {:id "composer" :aria-label "この Bot に頼む"}
-        [:label {:for "prompt" :class "dads-visually-hidden"} "依頼"]
-        (bots/prompt {:id "prompt" :placeholder (str (:name current) " に頼む")})
-        (bots/send {:id "send"} "送信")
-        (bots/composer-hint {} "Enter で改行 · ⌘ / Ctrl + Enter で送信")
-        (status/line {:id "status" :label "操作の結果"})))))
+        (thread/bubble {:role :person :followup-id "fu-1"} "次のステップは？"))
+      ;; the composer: bots markup, composer runtime (autosize, ⌘⏎, running state)
+      (composer/form {:id "composer" :input-id "prompt" :label "依頼"
+                      :placeholder (str (:name current) " に頼む")
+                      :help "Enter で改行 · ⌘ / Ctrl + Enter で送信"
+                      :send-attrs {:id "send"} :stop-attrs {:id "stop"}
+                      :attrs {:aria-label "この Bot に頼む"}})
+      (status/line {:id "status" :label "操作の結果"}))))
 
 (def ops-menu
   "The 操作 menu, server-rendered and hidden; the host shows it at the button."
@@ -140,7 +143,23 @@
        ;; what the actions DO is the host's — registered once, by id
        "shinkansen.on('bots/select',function(p){current=p.id;cloudKotobaBots.setCurrent(document.getElementById('bots'),p.id);document.querySelector('[data-ck-bots=title-name]').textContent=(document.querySelector('.ck-bots__item[data-bot-id=\"'+p.id+'\"] [data-ck-bots=name]')||{}).textContent||p.id;});\n"
        "shinkansen.on('bots/rail-toggle',function(p,el){var w=document.getElementById('bots');var on=w.classList.toggle('show-rail');el.setAttribute('aria-expanded',String(on));});\n"
-       "shinkansen.on('bots/send',function(p,el){var t=el.querySelector('[data-ck-bots=prompt]');document.getElementById('sent').textContent=t.value;t.value='';});\n"
+       ;; the composer runtime over the form; the send handler streams a
+       ;; stubbed NDJSON run (the Bot loop's wire) through cloudKotobaThread —
+       ;; fetch is replaced for the one demo URL so the page stays self-contained
+       "var feed=document.getElementById('feed');var active=null;\n"
+       "var composer=cloudKotobaComposer.attach(document.getElementById('composer'),{running:function(){return !!active;}});\n"
+       "var realFetch=globalThis.fetch;globalThis.fetch=function(url,init){if(url!=='/demo/stream')return realFetch.apply(this,arguments);"
+       "var frames=['{\"type\":\"phase\",\"phase\":\"model\"}','{\"type\":\"delta\",\"content\":\"次は \"}','{\"type\":\"delta\",\"content\":\"blueprint と実装の差を 1 つ名指しします。\"}',"
+       "'{\"type\":\"followup-applied\",\"followups\":[{\"id\":\"fu-2\"}]}','{\"type\":\"delta\",\"content\":\"追加の指示を反映しました。\"}','{\"type\":\"done\",\"messages\":[],\"turn\":{\"state\":\"completed\"}}'];"
+       "var enc=new TextEncoder();var i=0;var stream=new ReadableStream({pull:function(c){return new Promise(function(r){setTimeout(function(){if(init&&init.signal&&init.signal.aborted){c.close();r();return;}if(i<frames.length)c.enqueue(enc.encode(frames[i++]+'\\n'));else c.close();r();},120);});}});"
+       "return Promise.resolve(new Response(stream,{status:200}));};\n"
+       "shinkansen.on('bots/send',function(p,el){var text=composer.value();if(!text)return;composer.clear();"
+       "if(active){cloudKotobaThread.bubble(feed,{role:'person',text:text,followupId:'fu-2'});cloudKotobaStatus.say(statusEl,'追加メッセージを受け付けました。');return;}"
+       "cloudKotobaThread.bubble(feed,{role:'person',text:text});document.getElementById('sent').textContent=text;"
+       "active=cloudKotobaThread.run({feed:feed,source:'/demo/stream',init:{method:'POST'},onFrame:function(f){if(f.type==='phase')cloudKotobaStatus.say(statusEl,'モデルの応答を待っています…',{ttl:0});}});composer.refresh();"
+       "active.promise.then(function(r){cloudKotobaStatus.say(statusEl,r.done?'完了しました。':'途中で切れました。',{tone:r.done?'ok':'warn'});},function(e){cloudKotobaStatus.say(statusEl,e.name==='AbortError'?'中止しました。':e.message,{tone:e.name==='AbortError'?'info':'error'});})"
+       ".then(function(){active=null;composer.refresh();});});\n"
+       "shinkansen.on('bots/stop',function(){if(active)active.abort('stop');});\n"
        "shinkansen.on('bots/new',function(){document.getElementById('sent').textContent='new bot';});\n"
        "var statusEl=document.getElementById('status');\n"
        "shinkansen.on('bots/ops',function(p,el){cloudKotobaMenu.show(document.getElementById('ops-menu'),{anchor:el,opener:el});});\n"
@@ -160,13 +179,12 @@
     :lang "ja"
     :css dds-css
     :dark? true
-    :app-css (str tokens/bridge-css "\n" ck/css "\n" behavior/css "\n" switch/css "\n" menu/css "\n" status/css "\n" bot-css "\n" shell/css "\n" styles/bots-css "\n"
+    :app-css (str tokens/bridge-css "\n" ck/css "\n" behavior/css "\n" switch/css "\n" menu/css "\n" status/css "\n" bot-css "\n" shell/css "\n" styles/bots-css "\n" composer/css "\n" thread/css "\n"
                   "body{margin:0;height:100dvh;display:flex;flex-direction:column;font-family:system-ui,sans-serif;color:var(--hig-color-label);background:var(--hig-color-system-background)}"
                   ".ex-top{display:flex;align-items:center;justify-content:space-between;gap:var(--hig-spacing-3);padding:var(--hig-spacing-2) var(--hig-spacing-4);border-bottom:1px solid var(--hig-color-separator)}"
                   ".ex-top h1{margin:0;font-size:var(--hig-text-subheadline-font-size)}"
                   ".ex-top__switches{display:flex;align-items:center;gap:var(--hig-spacing-3);flex-wrap:wrap}"
-                  "#main{flex:1;min-height:0;display:flex;flex-direction:column}#bots{flex:1;min-height:0}"
-                  ".dads-visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}")
+                  "#main{flex:1;min-height:0;display:flex;flex-direction:column}#bots{flex:1;min-height:0}")
     ;; the stored theme lands before paint; everything else is the runtime's
     :head [[:script theme-contract/head-script]]}
    [:a {:href "#main" :class "dads-visually-hidden"} "本文へ"]
@@ -189,6 +207,8 @@
    [:script switch/script]
    [:script menu/script]
    [:script status/script]
+   [:script composer/script]
+   [:script thread/script]
    [:script demo-script]))
 
 (def out "examples/bots-workspace.html")

@@ -9,6 +9,9 @@
             [cloud-kotoba-dds.status :as status]
             [cloud-kotoba-dds.switch :as sw]
             [cloud-kotoba-dds.styles :as styles]
+            [cloud-kotoba-dds.composer :as composer]
+            [cloud-kotoba-dds.thread :as thread]
+            [cloud-kotoba-dds.bots :as bots]
             [shinkansen.interaction :as interaction]
             [jp-go-dds.tokens :as tokens]))
 
@@ -18,14 +21,15 @@
 (defn- ck-asked [css] (set (map second (re-seq #"var\((--ck-[a-z0-9-]+)" css))))
 
 (deftest tokens-are-the-one-place-colour-is-derived
-  (is (<= 19 (count ck/names)) (pr-str ck/names))
+  (is (<= 21 (count ck/names)) (pr-str ck/names))
   (is (empty? (re-seq #"#[0-9a-fA-F]{3,8}\b" ck/css)) "no colour literal in the token layer")
-  (is (= 4 (count (re-seq #"light-dark\(" ck/css))) "the four surface lifts live here")
+  (is (= 5 (count (re-seq #"light-dark\(" ck/css))) "the five surface lifts live here (ground / raised / hover / border / accent)")
   (is (empty? (remove (set (keys tokens/hig->dads)) (hig-asked ck/css))) "every --hig-* the tokens read is carried by the bridge")
   (is (str/includes? ck/css "prefers-reduced-motion") "motion has a floor"))
 
 (deftest components-read-tokens-not-values
-  (doseq [[nm css] {"bots" styles/bots-css "switch" sw/css "menu" menu/css "status" status/css}]
+  (doseq [[nm css] {"bots" styles/bots-css "switch" sw/css "menu" menu/css "status" status/css
+                    "composer" composer/css "thread" thread/css}]
     (testing nm
       (is (empty? (re-seq #"#[0-9a-fA-F]{3,8}\b" css)) "no colour literal")
       (is (empty? (re-seq #"light-dark\(" css)) "no surface derivation outside the token layer")
@@ -74,4 +78,44 @@
 (defmethod cljs.test/report [:cljs.test/default :end-run-tests] [m]
   (println "interaction-components-test" (select-keys m [:test :pass :fail :error]))
   (when-not (cljs.test/successful? m) (set! (.-exitCode js/process) 1)))
+
+
+;; ---------- wave 2: composer + thread (2026-09-16, owner: 「1, 2, 3, 4」) ----------
+
+(deftest composer-form-is-the-bots-composer-with-behaviour-hooks
+  (let [v (composer/form {:id "f" :input-id "p" :label "依頼" :placeholder "頼む" :help "Enter で改行"
+                          :maxlength 8000 :send-attrs {:id "send"} :stop-attrs {:id "stop"}})
+        a (attrs-of v)
+        root (first a)
+        by (fn [k] (first (filter #(= k (:data-ck-bots %)) a)))]
+    (is (= "bots/send" (:data-action root)) "submit names the bots vocabulary, not a second one")
+    (is (= "autosize" (:data-ck-composer root)) "the marker the composer css keys on")
+    (is (= "p" (:id (by "prompt"))))
+    (is (= "p-help" (:aria-describedby (by "prompt"))))
+    (is (= 8000 (:maxlength (by "prompt"))))
+    (is (nil? (:disabled (by "send"))) "send is NOT rendered disabled (shinkansen.audit :idle-disabled)")
+    (is (= ["送信" "追加で伝える"] [(:data-label-send (by "send")) (:data-label-more (by "send"))]) "labels are attributes a locale table can translate")
+    (is (true? (:hidden (by "stop"))) "stop is hidden until a run is active")
+    (is (= "bots/stop" (:data-action (by "stop"))))
+    (is (contains? (:events bots/actions) :bots/stop) "bots/actions declares stop")
+    (is (= [] (interaction/undeclared-actions bots/actions (pr-str v))))))
+
+(deftest composer-runtime-carries-the-behaviour-not-the-words
+  (doseq [needle ["cloudKotobaComposer" "requestSubmit" "isComposing" "keyCode!==229" "metaKey||ev.ctrlKey" "data-label-more" "closest('dialog')" "scrollHeight" "maxHeight"]]
+    (is (str/includes? composer/script needle) needle))
+  (is (not (re-find #"[぀-ヿ一-鿿]" composer/script)) "no Japanese in the runtime — the labels come from the markup"))
+
+(deftest thread-bubble-carries-the-followup-anchor
+  (let [[tag attrs & body] (thread/bubble {:role :person :followup-id "fu-1"} "追加で")]
+    (is (= :div tag))
+    (is (= "person" (:data-role attrs)))
+    (is (= "fu-1" (:data-followup-id attrs)))
+    (is (str/includes? (:class attrs) "ck-bots__bubble") "the bots pattern's bubble, not a second class")
+    (is (= ["追加で"] body))))
+
+(deftest thread-runtime-reads-the-frames-the-bot-loop-emits
+  (doseq [needle ["cloudKotobaThread" "shinkansen.streamRun" "'delta'" "'followup-applied'" "'done'" "'error'" "data-followup-id" "AbortError" "dataset.markdown"]]
+    (is (str/includes? thread/script needle) needle))
+  (is (not (re-find #"phase|tool" thread/script)) "phases and tools are the host's frames, not the thread's"))
+
 (run-tests)

@@ -1,0 +1,102 @@
+(ns composer-thread-browser
+  "The composer and thread runtimes measured in a real browser, on the
+   rendered example (examples/bots-workspace.html), driven with trusted
+   events — the two contracts a string test cannot see:
+
+   composer  Enter inserts a newline (no submit); ⌘⏎ submits; a composition
+             Enter (IME) does not; send reads data-label-more while the
+             host's running() is true; stop is hidden until then; Escape
+             clicks stop; the prompt autosizes and stops at the token cap.
+   thread    a stubbed NDJSON run (the Bot loop's wire) grows ONE bot
+             bubble across two deltas, a followup-applied frame opens a new
+             bubble AFTER the person's follow-up anchor, done resolves, the
+             status line changes tone; abort rejects with AbortError.
+
+   Prints ok/FAIL per check and `SCANNED<TAB>n`; exit 1 on a FAIL, 2 when
+   the browser could not be driven at all (never a silent pass).
+
+   Run (after rendering the example):
+     PLAYWRIGHT_MODULE=<path to node_modules/playwright> \\
+     kbb --backend sci test/composer_thread_browser.cljk"
+  (:require [clojure.string :as str]))
+
+(def pw (js/require (or (.. js/process -env -PLAYWRIGHT_MODULE) "playwright")))
+(def file (str "file://" (.resolve (js/require "path") "examples/bots-workspace.html")))
+(def checks (atom []))
+(def errors (atom []))
+(defn- check! [label ok detail] (swap! checks conj [label (boolean ok) detail]))
+(defn- chain [p steps] (reduce (fn [p f] (.then p f)) p steps))
+
+(def snap-js
+  "JSON.stringify({sendText:document.getElementById('send').textContent,sendDisabled:document.getElementById('send').disabled,
+   stopHidden:document.getElementById('stop').hidden,prompt:document.getElementById('prompt').value,
+   promptH:document.getElementById('prompt').getBoundingClientRect().height,
+   bubbles:[...document.querySelectorAll('#feed .ck-bots__bubble')].map(b=>b.dataset.role+':'+(b.dataset.followupId||'')+':'+b.textContent.trim()),
+   status:document.getElementById('status').textContent,tone:document.getElementById('status').dataset.tone||'',
+   sent:document.getElementById('sent').textContent,active:document.activeElement&&document.activeElement.id})")
+
+(defn- snap [page] (.then (.evaluate page snap-js) #(js->clj (js/JSON.parse %) :keywordize-keys true)))
+
+(defn- drive [page]
+  (chain (js/Promise.resolve nil)
+   [(fn [_] (.goto page file))
+    (fn [_] (.waitForTimeout page 300))
+    (fn [_] (snap page))
+    (fn [s] (check! "idle: send enabled, reads data-label-send, stop hidden" (and (not (:sendDisabled s)) (= "送信" (:sendText s)) (:stopHidden s)) s)
+            (.click page "#prompt"))
+    ;; Enter = newline, no submit
+    (fn [_] (.type (.-keyboard page) "一行目"))
+    (fn [_] (.press (.-keyboard page) "Enter"))
+    (fn [_] (.type (.-keyboard page) "二行目"))
+    (fn [_] (snap page))
+    (fn [s] (check! "Enter inserts a newline and does not submit" (and (= "一行目\n二行目" (:prompt s)) (= "" (:sent s)) (= 1 (count (:bubbles s)))) s)
+            ;; autosize: grows past the 2-row start, and caps at the token (12rem = 192px)
+            (.evaluate page "(()=>{const p=document.getElementById('prompt');const before=p.getBoundingClientRect().height;p.value=Array.from({length:40},(_,i)=>'行'+i).join('\\n');p.dispatchEvent(new Event('input'));const after=p.getBoundingClientRect().height;const cap=parseFloat(getComputedStyle(p).maxHeight);p.value='一行目\\n二行目';p.dispatchEvent(new Event('input'));return JSON.stringify({before,after,cap,final:p.getBoundingClientRect().height});})()"))
+    (fn [r] (let [{:keys [before after cap final]} (js->clj (js/JSON.parse r) :keywordize-keys true)]
+              (check! "autosize grows with text and stops at --ck-composer-max-height" (and (> after before) (<= (Math/abs (- after cap)) 1) (< final after)) {:before before :after after :cap cap :final final})))
+    ;; IME composition Enter must not submit (keyCode 229)
+    (fn [_] (.evaluate page "(()=>{const p=document.getElementById('prompt');const ev=new KeyboardEvent('keydown',{key:'Enter',metaKey:true,bubbles:true,cancelable:true});Object.defineProperty(ev,'keyCode',{get:()=>229});p.dispatchEvent(ev);return document.getElementById('sent').textContent;})()"))
+    (fn [sent] (check! "⌘Enter during IME composition (keyCode 229) does not submit" (= "" sent) sent)
+               (.press (.-keyboard page) "Meta+Enter"))
+    (fn [_] (.waitForTimeout page 200))
+    (fn [_] (snap page))
+    (fn [s] (check! "⌘Enter submits: prompt cleared, person bubble appended, provisional bot bubble open" (and (= "" (:prompt s)) (= "一行目\n二行目" (:sent s)) (= 3 (count (:bubbles s))) (str/starts-with? (nth (:bubbles s) 1) "person::一行目") (= "bot::" (nth (:bubbles s) 2))) s)
+            (check! "running: send reads data-label-more, stop visible" (and (= "追加で伝える" (:sendText s)) (not (:stopHidden s))) s)
+            ;; a follow-up while running: anchored person bubble
+            (.click page "#prompt"))
+    (fn [_] (.type (.-keyboard page) "追加で"))
+    (fn [_] (.press (.-keyboard page) "Meta+Enter"))
+    (fn [_] (.waitForTimeout page 900))
+    (fn [_] (snap page))
+    (fn [s] (let [b (:bubbles s)]
+              (check! "stream: deltas grew ONE bubble; followup-applied opened a new bubble AFTER the follow-up anchor"
+                      (and (= "bot::次は blueprint と実装の差を 1 つ名指しします。" (nth b 2 nil))
+                           (= "person:fu-2:追加で" (nth b 3 nil))
+                           (= "bot::追加の指示を反映しました。" (nth b 4 nil)))
+                      b)
+              (check! "done: status ok tone, composer back to idle" (and (= "完了しました。" (:status s)) (= "ok" (:tone s)) (= "送信" (:sendText s)) (:stopHidden s)) s))
+            ;; second run, stopped with Escape
+            (.click page "#prompt"))
+    (fn [_] (.type (.-keyboard page) "止める"))
+    (fn [_] (.press (.-keyboard page) "Meta+Enter"))
+    (fn [_] (.waitForTimeout page 150))
+    (fn [_] (.press (.-keyboard page) "Escape"))
+    (fn [_] (.waitForTimeout page 300))
+    (fn [_] (snap page))
+    (fn [s] (check! "Escape clicks stop: abort rejects AbortError → 「中止しました。」, idle again" (and (= "中止しました。" (:status s)) (:stopHidden s) (= "送信" (:sendText s))) s))]))
+
+(-> (.launch (.-chromium pw) #js {:headless true})
+    (.then (fn [browser]
+             (-> (.newPage browser #js {:viewport #js {:width 1280 :height 800}})
+                 (.then (fn [page]
+                          (.on page "pageerror" (fn [e] (swap! errors conj (str e))))
+                          (drive page)))
+                 (.then (fn [_] (.close browser))))))
+    (.then (fn [_]
+             (doseq [[label ok detail] @checks]
+               (println (if ok "ok  " "FAIL") label (if ok "" (pr-str detail))))
+             (check! "no page errors" (empty? @errors) @errors)
+             (when (seq @errors) (println "FAIL page errors" (pr-str @errors)))
+             (println (str "SCANNED\t" (count @checks)))
+             (when (some (complement second) @checks) (set! (.-exitCode js/process) 1))))
+    (.catch (fn [e] (println "REFUSE" (str e)) (set! (.-exitCode js/process) 2))))
