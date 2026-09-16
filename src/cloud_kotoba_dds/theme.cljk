@@ -92,6 +92,8 @@
        behavior/css "\n"
        shell/css "\n"
        switch/css "\n"
+       ;; the λ theme toggle's own mark (switch/lambda-toggle, 2026-09-16)
+       switch/lambda-css "\n"
        menu/css "\n"
        status/css "\n"
        sheet/css "\n"
