@@ -58,6 +58,10 @@ marker です。kotoba.cloud/docs が最初の host です。
 
 **Switch components 0.1.0**: light / dark / system の theme switch と `a[hreflang]` の言語切り替えを、shinkansen の契約（`shinkansen.theme` / `shinkansen.locale`）の上に置いた共通 component。[API と実測](SWITCH_COMPONENTS.md)、見本は [bots-workspace](examples/bots-workspace.html) の topbar。
 
+## Interaction の共通化 — tokens / menu / status
+
+**Interaction components 0.1.0**: `cloud-kotoba-dds.tokens`（`--ck-*` design token、dark の surface lift を含む）、`cloud-kotoba-dds.menu`（context / floating menu、`cloudKotobaMenu`）、`cloud-kotoba-dds.status`（`role=status` の 1 行、`cloudKotobaStatus`）。product の `interaction.js` が手で書いていた振る舞いを token → component → runtime に落とす第 1 波。[API と実測](INTERACTION_COMPONENTS.md)。
+
 ## 既存の見本の範囲
 
 バージョンは **0.2.0-study**。共通設計・操作契約・見本のリポジトリです。直感性を優先する表示ルールはMurakumoで適用されていますが、この見本全体は配布可能な製品用コンポーネントライブラリではありません。router、認証、永続会話、生成・課金の各adapterは今後の実装範囲です。
