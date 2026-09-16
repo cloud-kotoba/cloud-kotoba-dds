@@ -19,11 +19,12 @@
   (:require [cloud-kotoba-dds.bots :as bots]
             [cloud-kotoba-dds.bot :as bot]
             [cloud-kotoba-dds.shell :as shell]
+            [cloud-kotoba-dds.switch :as switch]
             [cloud-kotoba-dds.styles :as styles]
             [shinkansen.interaction :as interaction]
+            [shinkansen.theme :as theme-contract]
             [jp-go-dds.page :as page]
             [jp-go-dds.tokens :as tokens]
-            [jp-go-dds.theme-toggle :as theme]
             [shinkansen.audit :as audit]
             [shinkansen.viewport :as viewport]
             ["node:fs" :as fs]
@@ -136,22 +137,30 @@
     :lang "ja"
     :css dds-css
     :dark? true
-    :app-css (str tokens/bridge-css "\n" theme/css "\n" bot-css "\n" shell/css "\n" styles/bots-css "\n"
+    :app-css (str tokens/bridge-css "\n" switch/css "\n" bot-css "\n" shell/css "\n" styles/bots-css "\n"
                   "body{margin:0;height:100dvh;display:flex;flex-direction:column;font-family:system-ui,sans-serif;color:var(--hig-color-label);background:var(--hig-color-system-background)}"
                   ".ex-top{display:flex;align-items:center;justify-content:space-between;gap:var(--hig-spacing-3);padding:var(--hig-spacing-2) var(--hig-spacing-4);border-bottom:1px solid var(--hig-color-separator)}"
                   ".ex-top h1{margin:0;font-size:var(--hig-text-subheadline-font-size)}"
-                  "#bots{flex:1;min-height:0}"
+                  ".ex-top__switches{display:flex;align-items:center;gap:var(--hig-spacing-3);flex-wrap:wrap}"
+                  "#main{flex:1;min-height:0;display:flex;flex-direction:column}#bots{flex:1;min-height:0}"
                   ".dads-visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}")
-    :head [[:script theme/script]]}
+    ;; the stored theme lands before paint; everything else is the runtime's
+    :head [[:script theme-contract/head-script]]}
+   [:a {:href "#main" :class "dads-visually-hidden"} "本文へ"]
    [:header {:class "ex-top"}
     [:h1 "Bots workspace — cloud-kotoba-dds"]
-    theme/control]
-   view
+    [:div {:class "ex-top__switches"}
+     (switch/locale-switch {:id "lang" :current "ja"
+                            :locales [{:locale "ja" :label "日本語" :href "?lang=ja"}
+                                      {:locale "en" :label "English" :href "?lang=en"}]})
+     (switch/theme-switch {:id "theme"})]]
+   [:main {:id "main"} view]
    [:p {:id "sent" :class "dads-visually-hidden" :aria-live "polite"}]
    [:script interaction/runtime]
    [:script bot-js]
    [:script shell/script]
    [:script bots/script]
+   [:script switch/script]
    [:script demo-script]))
 
 (def out "examples/bots-workspace.html")
