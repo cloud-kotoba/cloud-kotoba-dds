@@ -67,7 +67,7 @@ marker です。kotoba.cloud/docs が最初の host です。
 
 ## Interaction の共通化 — tokens / menu / status
 
-**Interaction components 0.1.0**: `cloud-kotoba-dds.tokens`（`--ck-*` design token、dark の surface lift を含む）、`cloud-kotoba-dds.menu`（context / floating menu、`cloudKotobaMenu`）、`cloud-kotoba-dds.status`（`role=status` の 1 行、`cloudKotobaStatus`）。product の `interaction.js` が手で書いていた振る舞いを token → component → runtime に落とす第 1 波。[API と実測](INTERACTION_COMPONENTS.md)。
+**Interaction components 0.2.0**: `cloud-kotoba-dds.tokens`（`--ck-*` design token、dark の surface lift を含む）、`cloud-kotoba-dds.menu`（context / floating menu、`cloudKotobaMenu`）、`cloud-kotoba-dds.status`（`role=status` の 1 行、`cloudKotobaStatus`）、`cloud-kotoba-dds.composer`（Enter 改行 / ⌘⏎ 送信 / IME guard / autosize / running 状態、`cloudKotobaComposer`）、`cloud-kotoba-dds.thread`（`shinkansen.streamRun` で届く答えを bubble に描く、`cloudKotobaThread`）。product の `interaction.js` が手で書いていた振る舞いを token → component → runtime に落とす第 1・2 波。[API と実測](INTERACTION_COMPONENTS.md)。
 
 ## 既存の見本の範囲
 

@@ -98,6 +98,8 @@
    ".ck-bots__prompt::placeholder{color:var(--ck-bots-muted)}"
    ".ck-bots__send{grid-column:2;min-height:2.75rem;padding:0 var(--hig-spacing-4);border:1px solid var(--ck-bots-border);border-radius:var(--ck-bots-radius);background:var(--ck-bots-hover);font-weight:600;cursor:pointer;white-space:nowrap}"
    ".ck-bots__send:disabled{color:var(--ck-bots-muted);cursor:default}"
+   ".ck-bots__stop{grid-column:2;min-height:2.75rem;padding:0 var(--hig-spacing-4);border:1px solid var(--ck-bots-border);border-radius:var(--ck-bots-radius);background:transparent;color:var(--ck-danger);font-weight:600;cursor:pointer;white-space:nowrap}"
+   ".ck-bots__stop[hidden]{display:none}"
    ".ck-bots__hint{grid-column:1/-1;margin:0;color:var(--ck-bots-muted);font-size:var(--hig-text-caption1-font-size)}"
    ".ck-bots__rail-toggle{display:none;min-height:2.75rem;padding:0 var(--hig-spacing-3);border:1px solid var(--ck-bots-border);border-radius:var(--ck-bots-radius);background:var(--ck-bots-hover);cursor:pointer}"
    ;; --- fixed-rail variant: the rail is a fixed column, main scrolls beside it
