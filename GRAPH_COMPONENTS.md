@@ -48,6 +48,56 @@ attributes/types here, not a complete declared ontology DB editor. Diagnostics
 are dbStats/query-shape, not engine EXPLAIN/PROFILE. Existing migrations and
 backup controls keep their original qualifications and limitations.
 
+
+
+## Auth-gate empty-state (graph.kotoba.cloud contract)
+
+LOCKED DOM + mount contract for unauthorized vs empty tenant views. States are
+ONLY `not-signed-in` and `signed-in-empty` (no `loading`). Host owns session
+and JA/EN copy; library defaults are placeholders.
+
+### DOM
+
+- Root: `[data-auth-gate][data-panel=<id>][data-state=not-signed-in|signed-in-empty]`
+- Primary: `a[data-auth-gate-primary]` (sign-in) or `button|a[data-auth-gate-primary]` (host action)
+- Optional secondary: `[data-auth-gate-secondary]`
+- Existing empty ids stay: `#schema-view-empty`, `#table-view-empty`, `#graph-view-empty`, `#q-out`
+- Gate is a sibling/region inside the panel — explore controls are not wiped
+
+Panels that carry a gate: `overview` | `graph` | `ontology` | `datoms` | `query`.
+
+### Overview metrics
+
+When `data-state=not-signed-in`, the metric region (`[data-overview-metrics]`:
+プラン / Pins / Storage / Pin health) and header tenant line (`.kb-identity`)
+are `hidden` / `aria-hidden` so `data-field` tiles do not present bare "—" as
+live values. `signed-in-empty` may show metrics with honest unknowns — never
+invented zeros.
+
+### Mount
+
+```javascript
+const console = window.cloudKotobaGraph.mount(root, {
+  request(path, options) { return applicationTransport(path, options); },
+  signInHref: 'https://auth.kotoba.cloud/sign-in?return_to=https://graph.kotoba.cloud/',
+  // optional: 'not-signed-in' | 'signed-in-empty' | null (hide gates)
+  authGateState: 'not-signed-in',
+  authGateStateAfterLoad: null,
+  hashPrefix: 'knowledge/',
+  blockHref(cid) { return existingBlockURL(cid); },
+  signOut() { return revokeApplicationSession(); }
+});
+console.setAuthGateState('signed-in-empty'); // or null to hide
+```
+
+Defaults: `signInHref` → auth.kotoba.cloud return_to graph.kotoba.cloud.
+`:not-signed-in` primary MUST use that href. `:signed-in-empty` primary is a
+host action only — never a sign-in URL.
+
+Render helper: `cloud-kotoba-dds.graph-workbench/auth-gate`.
+Panel roots for SPA routing are `[data-panel][id]` so nested
+`[data-auth-gate][data-panel]` is not a route target.
+
 ## Consumers and release order
 
 - Kotobase: `kotobase.admin-page` supplies authenticated same-origin transport,

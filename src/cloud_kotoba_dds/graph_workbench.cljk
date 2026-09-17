@@ -15,11 +15,54 @@
 (def browser-source
   "Console wiring. DOM contract: every `data-field` is filled from the account
   status payload, `#audit-rows` / `#audit-more` are the audit table, and
-  `#load-state` is the one place a failure becomes visible."
+  `#load-state` is the one place a failure becomes visible.
+  Auth-gate: host.signInHref (default auth.kotoba.cloud return_to graph.kotoba.cloud),
+  host.authGateState / setAuthGateState('not-signed-in'|'signed-in-empty'|null).
+  Panel roots are `[data-panel][id]` so nested `[data-auth-gate][data-panel]` is not a route target."
   (str "
 window.cloudKotobaGraph={mount:function(root,host){
   if(!root||!host||typeof host.request!=='function')throw new Error('Graph host request adapter required');
   var disposed=false, listeners=[], actualDocument=root.ownerDocument, actualWindow=actualDocument.defaultView;
+  var signInHref=host.signInHref||'https://auth.kotoba.cloud/sign-in?return_to=https://graph.kotoba.cloud/';
+  // Auth-gate states: not-signed-in | signed-in-empty only. Host owns session;
+  // this helper paints [data-auth-gate] nodes and overview metric visibility.
+  function setAuthGateState(state){
+    var gates=root.querySelectorAll('[data-auth-gate]');
+    var metrics=root.querySelectorAll('[data-overview-metrics]');
+    var identity=root.querySelector('.kb-identity');
+    var consoleEl=root.matches('.kb-console')?root:root.querySelector('.kb-console');
+    if(state!=='not-signed-in'&&state!=='signed-in-empty'&&state!=null&&state!==''){
+      throw new Error('auth-gate state must be not-signed-in or signed-in-empty');
+    }
+    if(consoleEl){
+      if(state)consoleEl.setAttribute('data-auth',state); else consoleEl.removeAttribute('data-auth');
+    }
+    for(var i=0;i<gates.length;i++){
+      var g=gates[i];
+      if(!state){g.hidden=true;continue;}
+      g.hidden=false;g.setAttribute('data-state',state);
+      var primary=g.querySelector('[data-auth-gate-primary]');
+      if(primary){
+        if(state==='not-signed-in'){
+          if(primary.tagName==='A')primary.setAttribute('href',signInHref);
+        }else if(primary.tagName==='A'){
+          // signed-in-empty must never keep a sign-in href on primary
+          var href=primary.getAttribute('href')||'';
+          if(href.indexOf('auth.kotoba.cloud/sign-in')!==-1||href===signInHref)primary.removeAttribute('href');
+        }
+      }
+    }
+    var hideMetrics=(state==='not-signed-in');
+    for(var m=0;m<metrics.length;m++){
+      metrics[m].setAttribute('aria-hidden',hideMetrics?'true':'false');
+      if(hideMetrics)metrics[m].setAttribute('hidden',''); else metrics[m].removeAttribute('hidden');
+    }
+    if(identity){
+      identity.setAttribute('aria-hidden',hideMetrics?'true':'false');
+      if(hideMetrics)identity.setAttribute('hidden',''); else identity.removeAttribute('hidden');
+    }
+  }
+  setAuthGateState(Object.prototype.hasOwnProperty.call(host,'authGateState')?host.authGateState:'not-signed-in');
   function listen(target,event,fn){target.addEventListener(event,fn);listeners.push([target,event,fn]);}
   var document={getElementById:function(id){return root.querySelector('[id='+JSON.stringify(id)+']');},
     querySelector:function(selector){return root.matches(selector)?root:root.querySelector(selector);},querySelectorAll:root.querySelectorAll.bind(root),
@@ -167,10 +210,16 @@ window.cloudKotobaGraph={mount:function(root,host){
   }
 
   function boot(){
-    loadUsage().catch(function(e){
+    loadUsage().then(function(){
+        // Tenant payload arrived — leave honesty to live data-fields; clear gate.
+        setAuthGateState(Object.prototype.hasOwnProperty.call(host,'authGateStateAfterLoad')?host.authGateStateAfterLoad:null);
+      }).catch(function(e){
         if(e&&e.message==='unauthorized'){
+          setAuthGateState('not-signed-in');
           state('Your session expired. Sign in again to see this console.',true);
         }else{
+          // Signed-in transport but empty/error: do not invent zeros; gate may stay honest.
+          if(host.authGateState!=='not-signed-in')setAuthGateState(host.authGateState||'signed-in-empty');
           state('Could not load tenant data ('+((e&&e.message)||'error')+'). The values below are NOT zero — they are unknown.',true);
         }
       });
@@ -194,7 +243,7 @@ window.cloudKotobaGraph={mount:function(root,host){
   // results. Before JS runs every section remains visible. Older hashes
   // from the previous IA still resolve.
   (function(){
-    var tabs=document.querySelectorAll('[data-tab]'),panels=document.querySelectorAll('[data-panel]');
+    var tabs=document.querySelectorAll('[data-tab]'),panels=document.querySelectorAll('[data-panel][id]');
     var aliases={data:'overview',table:'datoms',write:'keys',identity:'keys',recovery:'plan'};
     function show(id){
       if(aliases[id])id=aliases[id];
@@ -495,7 +544,7 @@ window.cloudKotobaGraph={mount:function(root,host){
         .catch(function(){b.disabled=false;state('Could not sign out. Check your connection and retry.',true);});
     });
   });
-return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].removeEventListener(x[1],x[2]);});listeners=[];}};
+return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].removeEventListener(x[1],x[2]);});listeners=[];},setAuthGateState:setAuthGateState,signInHref:signInHref};
 }};
 "))
 
@@ -528,6 +577,11 @@ return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].remo
    ".kb-console .kb-desktop-nav{margin-left:auto;}}"
 
    ".kb-metric{font-variant-numeric:tabular-nums;}\n"
+   ".kb-auth-gate{margin-block:var(--hig-spacing-3,0.75rem);color:var(--ck-text,var(--hig-color-label));}\n"
+   ".kb-auth-gate .dds-ext-card{border:1px solid var(--ck-surface-border,var(--color-neutral-solid-gray-200));border-radius:var(--ck-radius-md,var(--hig-radius-lg));background:var(--ck-surface-raised,var(--color-neutral-white));padding:var(--hig-spacing-4,1rem);}\n"
+   ".kb-auth-gate[hidden],[data-overview-metrics][hidden],.kb-identity[hidden]{display:none;}\n"
+   ".kb-console[data-auth=\"not-signed-in\"] [data-overview-metrics]{display:none;}\n"
+   ".kb-console[data-auth=\"not-signed-in\"] .kb-identity{display:none;}\n"
    ".kb-skip{position:absolute;inset-inline-start:1rem;top:-5rem;z-index:100;padding:.75rem;background:var(--color-neutral-white);color:var(--color-neutral-solid-gray-900);}\n"
    ".kb-skip:focus{top:1rem;}\n"
    "[data-bad=\"1\"]{color:var(--color-semantic-error-1);}\n"
@@ -603,6 +657,80 @@ return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].remo
        ".kb-console pre{max-width:100%;overflow:auto;font-family:var(--hig-font-mono);white-space:pre-wrap;overflow-wrap:anywhere;}"
        ".kb-console .kb-code{font-family:var(--hig-font-mono);}"))
 
+(def default-sign-in-href
+  "Host default for graph.kotoba.cloud consumption. Mount may override via
+   host.signInHref; :not-signed-in primary MUST use this (or the override)."
+  "https://auth.kotoba.cloud/sign-in?return_to=https://graph.kotoba.cloud/")
+
+(def auth-gate-defaults
+  "Optional placeholders only — host owns JA/EN copy for production."
+  {:not-signed-in {:title "Sign in to open GraphDB"
+                   :body "Tenant metrics stay hidden until a session exists. No placeholder counts are shown."
+                   :primary-label "Sign in"}
+   :signed-in-empty {:title "Nothing to show here yet"
+                     :body "You are signed in. This panel is empty until the host loads tenant data or a snapshot."
+                     :primary-label "Continue"}})
+
+(defn auth-gate
+  "LOCKED empty-state contract shared with graph.kotoba.cloud.
+
+   States ONLY: :not-signed-in | :signed-in-empty (no :loading).
+   DOM: [data-auth-gate][data-panel=<id>][data-state=…],
+        a|button[data-auth-gate-primary], optional [data-auth-gate-secondary].
+   :not-signed-in primary MUST use sign-in href (default-sign-in-href).
+   :signed-in-empty primary is a host action only — never a sign-in href."
+  [{:keys [state panel title body primary secondary attrs]}]
+  (let [state-kw (keyword state)]
+    (when-not (#{:not-signed-in :signed-in-empty} state-kw)
+      (throw (ex-info "auth-gate state must be :not-signed-in or :signed-in-empty"
+                      {:state state})))
+    (let [panel-id (name (or panel "overview"))
+          defaults (get auth-gate-defaults state-kw)
+          primary (or primary {})
+          title (or title (:title defaults) "")
+          body (or body (:body defaults) "")
+          label (or (:label primary) (:primary-label defaults) "")
+          href (:href primary)
+          sign-in? (= state-kw :not-signed-in)
+          resolved-href (when sign-in? (or href default-sign-in-href))
+          action-href (when-not sign-in? href)
+          primary-el (if sign-in?
+                       (dds/button label {:type :solid-fill
+                                          :href resolved-href
+                                          :attrs {:data-auth-gate-primary true}})
+                       (if action-href
+                         (dds/button label {:type :solid-fill
+                                            :href action-href
+                                            :attrs {:data-auth-gate-primary true}})
+                         (dds/button label {:type :solid-fill
+                                            :attrs {:data-auth-gate-primary true
+                                                    :type "button"}})))
+          secondary-el (when secondary
+                         (let [sec (if (map? secondary) secondary {:label (str secondary)})
+                               sec-label (or (:label sec) "")
+                               sec-href (:href sec)]
+                           (cond-> [:span {:data-auth-gate-secondary true}]
+                             sec-href (conj [:a {:href sec-href} sec-label])
+                             (and (not sec-href) (seq sec-label)) (conj sec-label))))]
+      [:div (merge {:data-auth-gate true
+                  :data-panel panel-id
+                  :data-state (name state-kw)
+                  :class "kb-auth-gate"}
+                 attrs)
+     (dds/card
+      (dds/heading 3 title {:size "20"})
+      [:p body]
+      (cond-> [:div {:class "kb-actions"} primary-el]
+        secondary-el (conj secondary-el)))])))
+
+(defn- panel-auth-gate
+  "Default gate sibling for a workbench panel. Host copy via :auth-gate options."
+  [panel-id options]
+  (let [cfg (merge {:state :not-signed-in :panel panel-id}
+                   (get options :auth-gate)
+                   {:panel panel-id})]
+    (auth-gate cfg)))
+
 (defn- field
   "A value filled at runtime. Starts at `—` so an unfilled field is visibly
   unknown rather than plausibly zero."
@@ -637,20 +765,24 @@ return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].remo
 
 (defn overview-panel [options]
   [:div {:id "overview" :data-panel true}
-     (dds/section {:title "概要"}
-       (dds/grid {}
-         (stat-card "プラン" (field "tier") "現在のtenant entitlement。")
-         (stat-card "Pins"
-                    [:span (field "used-pins") " / " (field "quota-pins")]
-                    "残り " (field "remaining-pins") "。")
-         (stat-card "Storage"
-                    [:span (field "used-bytes") " / " (field "quota-bytes")]
-                    "残り " (field "remaining-bytes") "。")))
-     (dds/section {:title "Pin health"}
-       (dds/grid {}
-         (stat-card "Pinned" (field "pinned") "永続化済み。")
-         (stat-card "Pinning" (field "pinning") "処理待ちまたは処理中。")
-         (stat-card "Failed" (field "failed") "0以外なら確認が必要です。")))
+     (panel-auth-gate "overview" options)
+     ;; Metric region: hidden / aria-hidden while :not-signed-in so data-field
+     ;; tiles never present bare "—" as live values before a tenant session.
+     [:div {:data-overview-metrics true :aria-hidden "true"}
+      (dds/section {:title "概要"}
+        (dds/grid {}
+          (stat-card "プラン" (field "tier") "現在のtenant entitlement。")
+          (stat-card "Pins"
+                     [:span (field "used-pins") " / " (field "quota-pins")]
+                     "残り " (field "remaining-pins") "。")
+          (stat-card "Storage"
+                     [:span (field "used-bytes") " / " (field "quota-bytes")]
+                     "残り " (field "remaining-bytes") "。")))
+      (dds/section {:title "Pin health"}
+        (dds/grid {}
+          (stat-card "Pinned" (field "pinned") "永続化済み。")
+          (stat-card "Pinning" (field "pinning") "処理待ちまたは処理中。")
+          (stat-card "Failed" (field "failed") "0以外なら確認が必要です。")))]
      (dds/section {}
        (dds/card
         (dds/heading 2 "Content addressed GraphDB" {:size "24"})
@@ -689,6 +821,7 @@ return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].remo
 
 (defn graph-panel [options]
   [:div {:id "graph" :data-panel true}
+     (panel-auth-gate "graph" options)
      (dds/section {:title "Graph · Beta"}
        (dds/card
         [:p "同じdatom snapshotをnodeとedgeに投影します。entityからvalueへattribute label付きのedgeを描画します。"]
@@ -723,6 +856,7 @@ return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].remo
 
 (defn ontology-panel [options]
   [:div {:id "ontology" :data-panel true}
+     (panel-auth-gate "ontology" options)
      (dds/section {:title "オントロジー / Schema · 推定"}
        (dds/card
         [:p "読み込んだsnapshotからattribute、出現数、observed value typeを推定します。宣言オントロジーや全datasetの保証ではありません。"]
@@ -751,6 +885,7 @@ return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].remo
 
 (defn datoms-panel [options]
   [:div {:id "datoms" :data-panel true}
+     (panel-auth-gate "datoms" options)
      (dds/section {:title "Datoms · Beta"}
        (dds/card
         [:p "datomをEntity・Attribute・Valueの3列で閲覧します。同じbounded snapshotをGraph viewerと共有します。"]
@@ -769,6 +904,7 @@ return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].remo
 
 (defn query-panel [options]
   [:div {:id "query" :data-panel true}
+     (panel-auth-gate "query" options)
      (dds/section {:title "Query workbench"}
        [:div {:class "kb-query-layout"}
         (dds/card
