@@ -12,7 +12,7 @@
 (def css
   (str
   ".ck-catalog{max-width:68.75rem;margin:auto;padding:var(--hig-spacing-5)}"
-  ".ck-catalog h1{font-size:clamp(26px,5vw,38px)}"
+  ".ck-catalog h1{font-size:clamp(26px,5vw,38px);line-height:1.2}"
   ".ck-catalog__lead{max-width:48rem}"
   ".ck-catalog__status{color:var(--hig-color-secondary-label);font-size:var(--hig-text-footnote1-font-size)}"
   ".ck-catalog__tools{display:flex;flex-wrap:wrap;gap:var(--hig-spacing-3);margin:var(--hig-spacing-4) 0}"
