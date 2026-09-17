@@ -35,4 +35,46 @@
     (testing "the float layer still measures through chrome-layers with behavior/css"
       (is (= 1.0 (:score (ax (audit/score-document {:file "e" :html (str "<html><head><style>" behavior/css shell/css "</style></head><body><main id=\"main\">" (html/->html entry) "</main></body></html>")} ctx) :chrome-layers)))))))
 
+
+(deftest the-document-is-the-one-structure-and-the-audit-measures-it
+  ;; 2026-09-17 (owner direction, kotoba.cloud): the shell is emitted once,
+  ;; here — skip → main [topbar · banner · body] → rail → footer — and the
+  ;; :shell axis measures its markers on every document a host declares :app.
+  (let [rail [:nav {:class "kc-sb" :aria-label "app"} [:a {:href "/a"} "A"]]
+        body (shell/document {:skip {:label "本文へ"}
+                              :topbar (shell/topbar {:section [:span "MAIN"] :actions [[:a {:href "/x"} "x"]]})
+                              :banner [:div {:role "status" :hidden true} "resume"]
+                              :rail rail
+                              :footer [:footer {:class "f"} "f"]
+                              :runtime [[:span {:id "copy" :hidden true}]]
+                              :main {:class "kc-sb-main"}}
+                             [:h1 "Page"] [:p "body"])
+        pretty (html/->html (into [:body] body))
+        ;; html.core pretty-prints; the order is asserted on the flat form
+        h (str/replace pretty #"\n\s*" "")
+        ctx {:assets #{} :documents #{} :csp :none :shell :app}
+        ax (fn [r id] (first (filter #(= id (:id %)) (:axes r))))
+        report (audit/score-document {:file "d" :html (str "<html><head><style>" shell/css "</style></head>" pretty "</html>")} ctx)]
+    (testing "the order: skip, runtime, main (topbar first inside), rail, footer"
+      (is (str/starts-with? h "<body><a class=\"ck-skip dads-button\" data-type=\"outline\" data-size=\"sm\" href=\"#main\">本文へ</a><span id=\"copy\" hidden></span><main id=\"main\" class=\"kc-sb-main\"><header class=\"ck-topbar\" data-chrome=\"top\">"))
+      (is (< (str/index-of h "<main") (str/index-of h "data-chrome=\"rail\"") (str/index-of h "<footer")))
+      (is (str/includes? h "<nav class=\"kc-sb\" aria-label=\"app\" data-chrome=\"rail\">") "the app's nav, the marker stamped on it")
+      (is (str/includes? h "<h1>Page</h1><p>body</p></main>") "the body follows the banner inside main"))
+    (testing "the :shell axis passes this structure and names what a hand-composed page lacks"
+      (is (= 1.0 (:score (ax report :shell))))
+      (is (= 1.0 (:score (ax report :skip-link))))
+      (let [bare (audit/score-document {:file "b" :html "<html><body><header><nav class=\"kc-nav\"><a href=\"/x\">x</a></nav></header><main id=\"main\"><h1>x</h1></main></body></html>"} ctx)]
+        (is (str/starts-with? (:finding (ax bare :shell)) "no nav[data-chrome=rail]"))
+        (is (str/includes? (:finding (ax bare :shell)) "no data-chrome=top bar"))))
+    (testing "refusals by name"
+      (is (thrown-with-msg? js/Error #"shell/document: :rail is required"
+                            (doall (shell/document {:skip {:label "s"}} [:p "x"]))))
+      (is (thrown-with-msg? js/Error #"shell/document: :rail must be a \[:nav …\] root"
+                            (doall (shell/document {:skip {:label "s"} :rail [:div "not a nav"]} [:p "x"]))))
+      (is (thrown-with-msg? js/Error #"shell/document: :skip \{:label\} is required"
+                            (doall (shell/document {:rail rail} [:p "x"])))))
+    (testing "a rail without an attribute map still gets the marker"
+      (is (str/includes? (html/->html (into [:body] (shell/document {:skip {:label "s"} :rail [:nav [:a {:href "/a"} "A"]]} [:p "x"])))
+                         "<nav data-chrome=\"rail\">")))))
+
 (run-tests)
