@@ -6,6 +6,8 @@
 
 (def fixture-script
   "window.cloudKotobaGraph.mount(document.querySelector('.kb-console'),{
+  // Offline fixture acts as a signed-in host; hide auth-gates up front.
+  authGateState:null,
   request:function(path){
     var body=null;
     if(path.endsWith('.usageGet'))body={tier:'OFFLINE FIXTURE',tenantDid:'did:example:fixture'};

@@ -1,0 +1,80 @@
+(ns graph-auth-gate-test
+  "LOCKED auth-gate contract for graph.kotoba.cloud consumption.
+
+    kbb --backend sci --classpath src:test:../jp-go-digital-design-system/src:../text/src:../shinkansen/src:../css/src:../html/src test/graph_auth_gate_test.cljk"
+  (:require [cljs.test :refer [deftest is testing run-tests]]
+            [kotoba.lang.text :as str]
+            [cloud-kotoba-dds.graph-workbench :as graph]))
+
+(defn- flat [h] (tree-seq (fn [x] (or (vector? x) (seq? x))) seq h))
+(defn- attrs-of [h] (->> (flat h) (filter map?) vec))
+(defn- prs [h] (pr-str h))
+
+(deftest auth-gate-two-states-are-distinct
+  (let [a (graph/auth-gate {:state :not-signed-in :panel "overview"})
+        b (graph/auth-gate {:state :signed-in-empty :panel "overview"})
+        aa (first (attrs-of a))
+        ba (first (attrs-of b))]
+    (is (= true (:data-auth-gate aa)))
+    (is (= "overview" (:data-panel aa) (:data-panel ba)))
+    (is (= "not-signed-in" (:data-state aa)))
+    (is (= "signed-in-empty" (:data-state ba)))
+    (is (not= (:data-state aa) (:data-state ba)))))
+
+(deftest signed-in-empty-primary-never-has-sign-in-href
+  (let [g (graph/auth-gate {:state :signed-in-empty :panel "graph"
+                            :primary {:label "Refresh"}})
+        primary (->> (attrs-of g) (filter :data-auth-gate-primary) first)
+        rendered (prs g)]
+    (is (some? primary) "primary marker present")
+    (is (nil? (:href primary)) "no href on signed-in-empty button primary")
+    (is (not (str/includes? rendered "auth.kotoba.cloud/sign-in"))
+        "sign-in URL must not appear for signed-in-empty")
+    (is (not (str/includes? rendered graph/default-sign-in-href)))))
+
+(deftest not-signed-in-primary-uses-default-sign-in-href
+  (let [g (graph/auth-gate {:state :not-signed-in :panel "query"})
+        primary (->> (attrs-of g) (filter :data-auth-gate-primary) first)]
+    (is (= graph/default-sign-in-href (:href primary)))
+    (is (str/includes? (:href primary) "auth.kotoba.cloud/sign-in"))
+    (is (str/includes? (:href primary) "graph.kotoba.cloud"))))
+
+(deftest overview-not-signed-in-hides-metric-tiles-from-live-presentation
+  (let [panel (graph/overview-panel {})
+        rendered (prs panel)
+        metrics (->> (flat panel)
+                     (filter vector?)
+                     (filter (fn [n] (and (map? (second n))
+                                          (:data-overview-metrics (second n)))))
+                     first)
+        gate (->> (flat panel)
+                  (filter vector?)
+                  (filter (fn [n] (and (map? (second n))
+                                       (:data-auth-gate (second n)))))
+                  first)]
+    (is (some? gate) "auth-gate present on overview")
+    (is (= "not-signed-in" (:data-state (second gate))))
+    (is (some? metrics) "metric region wrapped")
+    (is (= "true" (:aria-hidden (second metrics)))
+        "metrics aria-hidden until tenant-ready")
+    ;; data-field em-dash placeholders exist in the tree but must sit under the
+    ;; aria-hidden metrics region — not as the auth-gate's live values.
+    (is (str/includes? (prs metrics) ":data-field")
+        "fields live inside the hidden metrics region")
+    (is (not (str/includes? (prs gate) ":data-field"))
+        "auth-gate itself does not render metric data-fields")
+    (doseq [id ["schema-view-empty" "table-view-empty" "graph-view-empty" "q-out"]]
+      (is (str/includes? (prs (graph/view {})) (str ":id \"" id "\""))
+          (str "empty id retained: " id)))))
+
+(deftest mount-script-documents-sign-in-href-and-helper
+  (is (str/includes? graph/browser-source "signInHref"))
+  (is (str/includes? graph/browser-source "setAuthGateState"))
+  (is (str/includes? graph/browser-source "data-auth-gate"))
+  (is (str/includes? graph/browser-source "[data-panel][id]"))
+  (is (str/includes? graph/script "setAuthGateState")))
+
+(deftest invalid-state-is-rejected
+  (is (thrown? js/Error (graph/auth-gate {:state :loading :panel "overview"}))))
+
+(run-tests 'graph-auth-gate-test)

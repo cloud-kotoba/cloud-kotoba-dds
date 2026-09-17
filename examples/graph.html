@@ -3691,6 +3691,7 @@ return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].remo
 }};
 </script>
     <script>window.cloudKotobaGraph.mount(document.querySelector('.kb-console'),{
+  authGateState:null,
   request:function(path){
     var body=null;
     if(path.endsWith('.usageGet'))body={tier:'OFFLINE FIXTURE',tenantDid:'did:example:fixture'};
