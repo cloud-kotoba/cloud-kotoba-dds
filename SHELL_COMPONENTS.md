@@ -65,6 +65,41 @@ band (`shell/rail-min-width`, 64rem) and **downward** under the chip on the comp
 band where the rail is a chip row. The rail's own geometry (fixed column, chip row) is
 app CSS — see [examples/shell.cljk](examples/shell.cljk).
 
+## The document structure (2026-09-17)
+
+`shell/document` is the ONE body structure of an app document — the part every page
+shares, so that **no page opts into the shell**:
+
+```
+skip link → runtime nodes → <main id="main"> [topbar · banner · body] → rail → footer
+```
+
+```clojure
+(shell/document {:skip    {:label "本文へ"}                   ; required
+                 :topbar  (shell/topbar {...})               ; data-chrome=top
+                 :banner  setup-banner                       ; optional status region
+                 :rail    (app-rail …)                       ; required, a [:nav …] root
+                 :footer  (app-footer …)
+                 :runtime [copy-runtime session-labels]      ; hidden nodes the browser reads
+                 :main    {:class "kc-sb-main"}}             ; an app's layout class on <main>
+  body…)
+```
+
+Returns the `<body>` children. Apps own every fact (what the rail lists, the bar's
+section and chips, the footer's copy, the rail's geometry in app CSS); this owns the
+**order, the landmarks and the markers**: the rail is stamped `data-chrome="rail"`, the
+top bar carries `data-chrome="top"`, the rail comes *after* `<main>` in document order
+(content first on every band; the skip link still leads to `#main`). A missing `:rail`
+or `:skip`, or a rail that is not a `<nav>`, is refused by name — never emitted without.
+
+**Measured, not trusted**: `shinkansen.audit`'s `:shell` axis (weight 0.10) measures
+exactly these markers on every document a host declares `ctx {:shell :app}` — one
+`nav[data-chrome=rail]` after `<main>`, one `data-chrome=top`. Why it exists: on
+kotoba.cloud (2026-09-17) the apex, support, the blog, legal and eleven catalog pages
+each composed their own chrome, drifted off the shell one page at a time, and audited
+97–100 while doing so — every chrome axis measured the chrome a document *declared*,
+none measured that it declared any.
+
 ## Verification
 
 `examples/shell.html` is generated from `examples/shell.cljk` (kbb, SCI backend, the

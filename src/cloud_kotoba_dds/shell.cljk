@@ -20,6 +20,15 @@
    (script → cloudKotobaShell.hydrateSession): no chrome markup is built
    in the browser.
 
+   Since 2026-09-17 this also owns the ONE body structure of an app
+   document (`document`): skip link → <main> [top bar · banner · body] →
+   rail → footer. Owner direction (kotoba.cloud): the apex, support, the
+   blog, legal and eleven catalog pages each composed their own chrome and
+   drifted off the shell one page at a time; the structure is now emitted
+   once, here, and shinkansen.audit's :shell axis measures its markers
+   (nav[data-chrome=rail] after <main>, data-chrome=top) on every document
+   a host declares as :app.
+
    Load the jp-go-dds token bridge before css. Pure hiccup + CSS; the
    browser side is `script`, one JS string the host ships as a file."
   (:require [kotoba.lang.text :as str]))
@@ -39,6 +48,9 @@
    menu); this sheet keeps the chip, the menu's look and the rail-band
    placement, and the float rule lives in behavior/css."
   (str
+   ;; --- skip link: off-canvas until focused (document) --------------------
+   ".ck-skip{position:absolute;inset-inline-start:var(--hig-spacing-4);top:-10rem;z-index:var(--hig-z-sticky,20)}"
+   ".ck-skip:focus{top:var(--hig-spacing-4)}"
    ;; --- top bar: sticky at the top of the scroll container --------------
    ".ck-topbar[data-chrome=top]{position:sticky;top:0;z-index:var(--hig-z-sticky,20);display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--hig-spacing-3);min-height:3rem;padding:var(--hig-spacing-2) var(--hig-spacing-5);border-block-end:1px solid var(--hig-color-separator);background:var(--hig-color-system-background)}"
    ".ck-topbar__section{display:flex;align-items:center;gap:var(--hig-spacing-2);font-weight:700;min-inline-size:0}"
@@ -133,6 +145,56 @@
       (into [:div {:id menu-id :class "ck-account__menu" :data-menu-popup true :data-chrome "float"
                    :role "menu" :aria-label menu-label :hidden true}]
             (map item-node items))]]))
+
+(defn- stamp-rail
+  "The app's rail root ([:nav attrs & children]) with data-chrome=rail —
+   the marker the :shell axis measures. Anything else is refused by name:
+   a rail that is not a <nav> is not a navigation landmark."
+  [rail]
+  (when-not (and (vector? rail) (= :nav (first rail)))
+    (throw (ex-info "shell/document: :rail must be a [:nav …] root — the rail is the document's navigation landmark"
+                    {:rail (if (vector? rail) (first rail) (type rail))})))
+  (let [[tag attrs & children] rail]
+    (if (map? attrs)
+      (into [tag (assoc attrs :data-chrome "rail")] children)
+      (into [tag {:data-chrome "rail"}] (cons attrs children)))))
+
+(defn document
+  "The ONE body structure of an app document — the part every page shares
+   so that no page opts into the shell:
+
+     skip link → runtime nodes → <main id=main> [topbar · banner · body] → rail → footer
+
+   Content first on every band (the rail is fixed left on desktop, a bar
+   on top on the phone — app CSS — and always AFTER <main> in document
+   order: shinkansen.audit :nav-before-content), the skip link still leads
+   to #main for the keyboard user who lands on the rail via the landmark.
+   Returns a seq of hiccup for <body>.
+
+     :skip     {:label}  the skip link's text (required — the landmark's name)
+     :topbar   hiccup    shell/topbar (data-chrome=top) — the section, the
+                         shared controls; nil when a page has no bar to
+                         show (the :shell axis will name it)
+     :banner   hiccup    a status region under the bar (setup progress…)
+     :rail     [:nav …]  the app's rail (required; data-chrome=rail stamped)
+     :footer   hiccup
+     :runtime  [hiccup…] hidden nodes the browser reads (copy maps, labels)
+     :main     {attrs}   extra attributes on <main> (an app's layout class)
+
+   Apps own every fact (what the rail lists, the bar's section and chips,
+   the footer's copy); this owns the order, the landmarks and the markers."
+  [{:keys [skip topbar banner rail footer runtime main]} & body]
+  (when-not (string? (:label skip))
+    (throw (ex-info "shell/document: :skip {:label} is required — the skip link is the first control of every document" {:skip skip})))
+  (when (nil? rail)
+    (throw (ex-info "shell/document: :rail is required — every app document wears the rail (owner direction 2026-09-17); a document without one is not this structure" {})))
+  (concat
+   [[:a {:class "ck-skip dads-button" :data-type "outline" :data-size "sm" :href "#main"} (:label skip)]]
+   runtime
+   [(into [:main (merge {:id "main"} main)]
+          (concat (when topbar [topbar]) (when banner [banner]) body))
+    (stamp-rail rail)]
+   (when footer [footer])))
 
 (def script
   "The shell's browser runtime, one JS string a host ships as its own file

@@ -4,7 +4,7 @@
         ;; cloud-kotoba-dds.bots names its actions in the shinkansen vocabulary
         ;; (shinkansen.interaction/action-attrs); the runtime string is the
         ;; consumer's to ship. A coordinated west checkout uses the sibling.
-        io.github.kotoba-lang/shinkansen {:git/url "https://github.com/kotoba-lang/shinkansen.git" :git/sha "3dbb88c1eb29b806ce69e81bcb8571924f5c94c7"}}
+        io.github.kotoba-lang/shinkansen {:git/url "https://github.com/kotoba-lang/shinkansen.git" :git/sha "08737d97edec967ce1a2ea8b4fd5ceff1f32aaef"}}
  :aliases {:example {:extra-paths ["."]
                      :extra-deps {io.github.kotoba-lang/jp-go-digital-design-system {:git/sha "dc4602dc17bce8f6e9ba038e92b3e95fcc411b49"}
                                   io.github.kotoba-lang/html {:git/sha "aa57f2730c87b7c2752151ed1a5f2e402c2ac71e"}}}}}
