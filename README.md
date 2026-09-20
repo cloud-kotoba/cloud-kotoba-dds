@@ -24,6 +24,10 @@ python3 -m http.server 8766 --bind 127.0.0.1
 
 ## 共通の生成UI
 
+`cloud-kotoba-dds.admin` は管理画面の共通構造を提供します。fragment で切り替える
+SPA view、並び替え可能な data table、`メール連絡先 → passkey 認証` の登録経路を
+共有し、アカウントデータ・権限・WebAuthn・mutation は利用側に残します。
+
 **0.3.0-alpha** の再利用可能な会話コンポーネントを追加しました。会話一覧・メッセージ・入力欄・モデル選択・共通スタイルとDOM描画を提供し、Murakumoで利用しています。[組み込み方とAPI](CHAT_COMPONENTS.md)、[最小の組み込み例](examples/chat.html)を参照してください。認証・生成API・料金・履歴保存は利用側から接続します。
 
 ## Theme — 既定の design token と document 既定（2026-09-16）

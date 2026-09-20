@@ -1,0 +1,29 @@
+(ns admin-test
+  (:require [cljs.test :refer [deftest is run-tests]]
+            [cloud-kotoba-dds.admin :as admin]))
+
+(deftest fragment-views-are-generated-from-one-table
+  (let [views [{:id "overview" :label "概要"} {:id "users" :label "ユーザー"}]
+        nav (admin/view-nav views "users")]
+    (is (= "ck-admin-nav" (get-in nav [1 :class])))
+    (is (= ["#overview" "#users"] (mapv #(get-in % [1 1 :href]) (drop 2 nav))))
+    (is (= "page" (get-in nav [3 1 1 :aria-current])))))
+
+(deftest data-table-declares-sortable-columns
+  (let [table (admin/data-table "users" [{:label "メール"}
+                                           {:label "登録日時" :sort-key :created-at}]
+                                "0 users")
+        sortable (get-in table [2 1 1 2])]
+    (is (= "none" (get-in sortable [1 :aria-sort])))
+    (is (= "created-at" (get-in sortable [2 1 :data-table-sort])))))
+
+(deftest registration-flow-names-email-before-passkey
+  (let [flow (admin/registration-flow {:email-label "メールアドレスを登録"
+                                       :passkey-label "パスキーを作成"
+                                       :email-note "通知先"
+                                       :passkey-note "認証"})]
+    (is (= "1" (get-in flow [2 2 2])))
+    (is (= "メールアドレスを登録" (get-in flow [2 3 1 1])))
+    (is (= "パスキーを作成" (get-in flow [3 3 1 1])))))
+
+(run-tests)

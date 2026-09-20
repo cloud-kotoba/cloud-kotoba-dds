@@ -1,0 +1,68 @@
+(ns cloud-kotoba-dds.admin
+  "Task-first admin-console patterns on the DADS token contract.
+
+  The host owns data, permissions and mutations. This namespace owns the
+  repeated structure: fragment-addressed SPA views, sortable/filterable data
+  tables, and the short registration path that keeps the next action visible.")
+
+(def css
+  (str
+   ".ck-admin-nav{display:flex;flex-wrap:wrap;gap:var(--hig-spacing-1);margin:0 0 var(--hig-spacing-4);padding:0;list-style:none;border-bottom:1px solid var(--hig-color-separator)}"
+   ".ck-admin-nav a{display:inline-flex;min-block-size:2.75rem;align-items:center;padding-inline:var(--hig-spacing-3);border-bottom:2px solid transparent;color:var(--hig-color-secondary-label);text-decoration:none;font-weight:700}"
+   ".ck-admin-nav a[aria-current=page]{color:var(--hig-color-tint);border-bottom-color:var(--hig-color-tint)}"
+   ".ck-admin-view[hidden]{display:none}"
+   ".ck-admin-table{overflow:auto;border:1px solid var(--hig-color-separator);border-radius:var(--hig-radius-sm)}"
+   ".ck-admin-table table{inline-size:100%;border-collapse:collapse}"
+   ".ck-admin-table th{white-space:nowrap;text-align:start}"
+   ".ck-admin-table th,.ck-admin-table td{padding:var(--hig-spacing-2) var(--hig-spacing-3);border-bottom:1px solid var(--hig-color-separator);vertical-align:middle}"
+   ".ck-admin-table tbody tr:last-child td{border-bottom:0}"
+   ".ck-admin-table th[aria-sort] button{display:inline-flex;align-items:center;gap:var(--hig-spacing-1);min-block-size:2.75rem;border:0;padding:0;background:transparent;color:inherit;font:inherit;font-weight:700;cursor:pointer}"
+   ".ck-admin-table th[aria-sort] button::after{content:'↕';color:var(--hig-color-secondary-label)}"
+   ".ck-admin-table th[aria-sort=ascending] button::after{content:'↑';color:var(--hig-color-tint)}"
+   ".ck-admin-table th[aria-sort=descending] button::after{content:'↓';color:var(--hig-color-tint)}"
+   ".ck-admin-flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr));gap:var(--hig-spacing-3);margin-block:var(--hig-spacing-3)}"
+   ".ck-admin-flow__step{display:grid;grid-template-columns:auto 1fr;gap:var(--hig-spacing-2);align-items:start;padding:var(--hig-spacing-3);border:1px solid var(--hig-color-separator);border-radius:var(--hig-radius-sm)}"
+   ".ck-admin-flow__number{display:grid;place-items:center;inline-size:1.75rem;block-size:1.75rem;border-radius:var(--hig-radius-capsule);background:var(--hig-color-tint);color:var(--hig-color-system-background);font-weight:700}"
+   ".ck-admin-flow__step p{margin:0;color:var(--hig-color-secondary-label)}"))
+
+(defn view-nav
+  ([views current] (view-nav views current {}))
+  ([views current attrs]
+   (into [:ul (merge {:class "ck-admin-nav" :role "list" :data-spa-nav "views"} attrs)]
+         (for [{:keys [id label]} views]
+           [:li [:a (cond-> {:href (str "#" id) :data-spa-view id}
+                      (= id current) (assoc :aria-current "page"))
+                 label]]))))
+
+(defn view-section [id current? & body]
+  (into [:section (cond-> {:class "ck-admin-view" :id (str "view-" id) :data-view id}
+                    (not current?) (assoc :hidden true))]
+        body))
+
+(defn data-table
+  "Headers are maps {:label :sort-key? :align?}. The host controls sorting."
+  [id headers empty-text]
+  [:div {:class "ck-admin-table"}
+   [:table
+    [:thead
+     (into [:tr]
+           (for [{:keys [label sort-key align]} headers]
+             [:th (cond-> {}
+                    align (assoc :data-align align)
+                    sort-key (assoc :aria-sort "none" :data-sort-key (name sort-key)))
+              (if sort-key
+                [:button {:type "button" :data-table-sort (name sort-key)} label]
+                label)]))]
+    [:tbody {:id (str id "-rows")}]]
+   [:p {:id (str id "-empty") :class "ck-console__note"} empty-text]])
+
+(defn registration-flow
+  "Email is a contact label; the passkey ceremony is the authority."
+  [{:keys [email-label passkey-label email-note passkey-note]}]
+  [:div {:class "ck-admin-flow" :aria-label (str email-label " → " passkey-label)}
+   [:div {:class "ck-admin-flow__step"}
+    [:span {:class "ck-admin-flow__number" :aria-hidden "true"} "1"]
+    [:div [:strong email-label] [:p email-note]]]
+   [:div {:class "ck-admin-flow__step"}
+    [:span {:class "ck-admin-flow__number" :aria-hidden "true"} "2"]
+    [:div [:strong passkey-label] [:p passkey-note]]]])
