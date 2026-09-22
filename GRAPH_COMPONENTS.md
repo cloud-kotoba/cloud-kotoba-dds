@@ -19,6 +19,22 @@ Use one active workbench per document; host it in an existing SPA view.
 account headers, telemetry, and login policy are not library defaults.
 Include the DADS stylesheet, token bridge and exported `page-css`.
 
+## Locale (JA / EN)
+
+`view` accepts `:locale` — `:ja` or `:en`, default `:ja` when absent (a host
+that passes no `:locale` renders exactly what it rendered before). It picks the
+copy of every user-visible string in the rendered workbench: nav labels, section
+titles, buttons, form labels, placeholders, support text, empty states and
+footnotes. The exported `panels` `:label` values stay Japanese for
+compatibility; `view` swaps the nav label per locale. The locked auth-gate
+default copy stays host-owned.
+
+Runtime strings (status messages, dynamic button text, empty rows) localize in
+the browser: `mount` reads `root.getAttribute('lang') ||
+document.documentElement.lang` once — `ja` when absent or unknown — and picks
+each string through a small `t(ja,en)` helper. The host therefore sets
+`lang="ja"` or `lang="en"` on the wrapper element the workbench mounts into.
+
 ## Browser adapter
 
 Load exported `script`, then call:

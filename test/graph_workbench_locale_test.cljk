@@ -1,0 +1,37 @@
+(ns graph-workbench-locale-test
+  "Bilingual copy contract for the shared workbench: :locale :ja | :en on
+   `view` (default :ja), JA nav labels for the Japanese rendering, English for
+   the other, and the locked auth-gate helper still shipped in `script`.
+
+    kbb --backend sci --classpath src:test:../jp-go-digital-design-system/src:../text/src:../shinkansen/src:../css/src:../html/src test/graph_workbench_locale_test.cljk"
+  (:require [cljs.test :refer [deftest is testing run-tests]]
+            [kotoba.lang.text :as str]
+            [cloud-kotoba-dds.graph-workbench :as graph]))
+
+(deftest ja-view-keeps-the-japanese-nav-labels
+  (let [h (pr-str (graph/view {:locale :ja}))]
+    (is (str/includes? h "概要") "Japanese rendering carries the JA nav labels")
+    (is (str/includes? h "データム"))
+    (is (not (str/includes? h "Overview"))
+        "no English nav label leaks into the Japanese rendering")))
+
+(deftest en-view-keeps-the-english-nav-labels
+  (let [h (pr-str (graph/view {:locale :en}))]
+    (is (str/includes? h "Overview") "English rendering carries the EN nav labels")
+    (is (str/includes? h "Datoms"))
+    (is (not (str/includes? h "概要"))
+        "no Japanese nav label leaks into the English rendering")))
+
+(deftest absent-locale-defaults-to-ja
+  (is (= (pr-str (graph/view)) (pr-str (graph/view {:locale :ja})))
+      "view with no options renders exactly the :ja copy")
+  (is (= (pr-str (graph/view {})) (pr-str (graph/view {:locale :ja})))
+      "an options map without :locale also renders the :ja copy"))
+
+(deftest script-still-ships-the-auth-gate-helper
+  (is (str/includes? graph/script "setAuthGateState"))
+  (is (str/includes? graph/browser-source "setAuthGateState"))
+  (is (str/includes? graph/script "function t(ja,en)"))
+  (is (str/includes? graph/browser-source "root.getAttribute('lang')")))
+
+(run-tests 'graph-workbench-locale-test)
