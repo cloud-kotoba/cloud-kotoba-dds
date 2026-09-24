@@ -6,7 +6,7 @@
     kbb --backend sci --classpath src:test:../jp-go-digital-design-system/src:../text/src:../shinkansen/src:../css/src:../html/src test/theme_test.cljk"
   (:require [cljs.test :refer [deftest is testing run-tests]]
             [kotoba.lang.text :as str]
-            [clojure.edn :as edn]
+            [kotoba.lang.edn :as edn]
             ["node:fs" :as fs]
             [cloud-kotoba-dds.theme :as theme]
             [cloud-kotoba-dds.sheet :as sheet]
