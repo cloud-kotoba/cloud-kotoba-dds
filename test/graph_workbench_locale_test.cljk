@@ -71,4 +71,25 @@
   (is (str/includes? graph/browser-source "function render(){buildModel();")
       "every view renders from the same model"))
 
+(deftest explorer-reads-only-what-the-query-gate-admits
+  ;; 2026-09-25: kotobase refuses a clause with neither entity nor attribute
+  ;; bound (admission.cljk :variable-attribute), so the old window query
+  ;; [[?e ?a ?v]] never ran against a real database. The window is an index
+  ;; read; whole-database facts bind the attribute.
+  (is (not (str/includes? graph/browser-source "query_edn:defaultQuery"))
+      "the window is not loaded with an unbounded Datalog clause")
+  (is (str/includes? graph/browser-source "readDatoms(db,'eavt',[],limit)"))
+  (is (str/includes? graph/browser-source "readDatoms(lastDb,'vaet',[en.raw]") "incoming refs come from :vaet")
+  (is (str/includes? graph/browser-source "(count-distinct ?e)] :where [[?e '+a+' _]]") "counts bind the attribute")
+  (is (str/includes? graph/browser-source "[(includes? ?l '+needle+')]") "search binds the attribute")
+  (is (not (re-find #"examples=\{datalog:'\{:find \[\?e \?a \?v\]" graph/browser-source))
+      "the query panel's example is one the gate admits"))
+
+(deftest knowledge-map-searches-and-expands
+  (let [ja (pr-str (graph/view {:locale :ja}))]
+    (doseq [id ["km-search" "km-search-results" "km-canvas-reset"]]
+      (is (str/includes? ja (str ":id \"" id "\"")) id)))
+  (doseq [fn-name ["function canvasExpand(" "function relax(" "function searchWhole(" "function countKinds(" "function loadKind(" "function ensureEntity("]]
+    (is (str/includes? graph/browser-source fn-name) fn-name)))
+
 (run-tests 'graph-workbench-locale-test)

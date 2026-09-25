@@ -2712,7 +2712,7 @@ body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inse
 .kb-km-center circle{stroke-width:4;}.kb-km-count{font-size:13px;font-weight:700;}.kb-km-arrow{fill:var(--color-neutral-solid-gray-500);}
 .kb-graph-node{cursor:pointer;}
 .kb-km-search{margin-block:.5rem 1rem;max-width:32rem;}.kb-km-results{border:1px solid var(--color-neutral-solid-gray-200);border-radius:.5rem;padding:.25rem .75rem;margin-top:.5rem;}
-.kb-km-pinned circle{stroke-dasharray:4 3;}
+.kb-km-map .kb-actions{display:flex;flex-wrap:wrap;gap:.25rem;}.kb-km-map .kb-actions .dads-button{width:auto;}@media(max-width:48rem){.kb-km-map .kb-graph{aspect-ratio:4/5;}}.kb-km-pinned circle{stroke-dasharray:4 3;}#km-canvas-reset[hidden],.kb-km-results[hidden]{display:none;}.kb-km-kind-whole{font-size:.8125rem;font-weight:600;}.kb-km-kind--unloaded{border-style:dashed;border-inline-start-style:solid;}
 @media(min-width:64rem){.kb-km-layout{grid-template-columns:minmax(0,3fr) minmax(16rem,2fr);align-items:start;}}
 .kb-about{margin-block:1.5rem;padding:1rem;border:1px solid var(--color-neutral-solid-gray-200);border-radius:.5rem;}
 .kb-about summary{cursor:pointer;font-weight:600;padding-block:.625rem;}
@@ -3627,7 +3627,9 @@ for(var i=0;i<ns.length;i++){var a=ns[i];for(var j=i+1;j<ns.length;j++){var b=ns
 es.forEach(function(e){var dx=e.to.x-e.from.x,dy=e.to.y-e.from.y,d=Math.sqrt(dx*dx+dy*dy)||1,f=(d-190)*.03;e.from.vx+=dx/d*f;e.from.vy+=dy/d*f;e.to.vx-=dx/d*f;e.to.vy-=dy/d*f;});
 ns.forEach(function(n){if(n.pinned){n.vx=0;n.vy=0;return;}n.vx+=(CX-n.x)*.004;n.vy+=(CY-n.y)*.004;n.vx*=.55;n.vy*=.55;n.x+=Math.max(-24,Math.min(24,n.vx));n.y+=Math.max(-24,Math.min(24,n.vy));});}}
 function fitView(){if(!canvas.nodes.length)return;var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;canvas.nodes.forEach(function(n){x0=Math.min(x0,n.x);y0=Math.min(y0,n.y);x1=Math.max(x1,n.x);y1=Math.max(y1,n.y);});
-var pad=70,w=Math.max(x1-x0+2*pad,420),h=Math.max(y1-y0+2*pad,260),ratio=900/560;if(w/h>ratio)h=w/ratio;else w=h*ratio;graphView=[(x0+x1)/2-w/2,(y0+y1)/2-h/2,w,h];}
+var svgEl=document.getElementById('graph-view-svg'),box=svgEl&&svgEl.getBoundingClientRect(),rw=(box&&box.width)||560,ratio=box&&box.width&&box.height?box.width/box.height:900/560,pad=70,w=Math.max(x1-x0+2*pad,420),h=Math.max(y1-y0+2*pad,260);
+var sc=w/rw,half=function(n){var l=clip(n.entity.label,20),px=0;for(var i=0;i<l.length;i++)px+=l.charCodeAt(i)>255?14:8;return px/2+22;};
+canvas.nodes.forEach(function(n){x0=Math.min(x0,n.x-half(n)*sc+pad);x1=Math.max(x1,n.x+half(n)*sc-pad);});w=Math.max(x1-x0+2*pad,420);if(w/h>ratio)h=w/ratio;else w=h*ratio;graphView=[(x0+x1)/2-w/2,(y0+y1)/2-h/2,w,h];}
 var labelKeys=['name','title','label','display-name','displayName','ident','summary','text','content','email','url'];
 function attrName(a){a=value(a);return a.charAt(0)===':'?a.slice(1):a;}
 function kindOf(a){var n=attrName(a),i=n.indexOf('/');return i>0?n.slice(0,i):'';}
@@ -3637,7 +3639,7 @@ function vtype(f){if(f.ref)return 'ref';var v=f.v;if(v===null||v===undefined)ret
 function typeLabel(x){return ({ref:t('参照','link'),string:t('文字列','text'),number:t('数値','number'),boolean:t('真偽','yes/no'),list:t('リスト','list'),cid:'CID',object:t('構造体','map'),'null':t('空','empty')})[x]||x;}
 function buildModel(){
 var shown=filtered(),byId=Object.create(null),order=[],links=[],kinds=Object.create(null),list=[];
-shown.forEach(function(r){var tri=triple(r),id=value(tri[0]);if(!byId[id]){byId[id]={id:id,facts:[],kind:'',label:'',out:[],inc:[]};order.push(byId[id]);}byId[id].facts.push({a:attrName(tri[1]),short:shortAttr(tri[1]),kind:kindOf(tri[1]),v:tri[2]});});
+shown.forEach(function(r){var tri=triple(r),id=value(tri[0]);if(!byId[id]){byId[id]={id:id,raw:tri[0],facts:[],kind:'',label:'',out:[],inc:[]};order.push(byId[id]);}byId[id].facts.push({a:attrName(tri[1]),short:shortAttr(tri[1]),kind:kindOf(tri[1]),v:tri[2]});});
 order.forEach(function(en){var votes=Object.create(null),best='',bn=0;
 en.facts.forEach(function(f){if(f.kind&&f.kind!=='db'){votes[f.kind]=(votes[f.kind]||0)+1;if(votes[f.kind]>bn){bn=votes[f.kind];best=f.kind;}}});
 en.kind=best||t('その他','other');
@@ -3662,7 +3664,8 @@ function entityButton(en,cls){var b=node('button',cls||'kb-km-link',en.label);b.
 function showKind(name){focus.kind=name;focus.entity='';graphView=[0,0,900,560];renderKnowledge();if(typeof applyGraphView==='function')applyGraphView();}
 function showEntity(id,keepFocus){var en=km.byId[id];if(!en)return;var wasOnCanvas=!!(focus.entity&&canvas.byId[id]);focus.entity=id;focus.kind=en.kind;
 if(wasOnCanvas)canvasExpand(en);else canvasReset(en);relax(220);fitView();renderKnowledge();if(typeof applyGraphView==='function')applyGraphView();
-if(!keepFocus){var box=document.getElementById('km-entity');if(box)box.focus({preventScroll:true});}}
+if(!keepFocus){var box=document.getElementById('km-entity');if(box)box.focus({preventScroll:true});}
+ensureEntity(en).then(function(changed){if(!changed||focus.entity!==id)return;render();var fresh=km.byId[id];if(fresh){canvasExpand(fresh);relax(160);fitView();renderKnowledge();applyGraphView();}});}
 function showAll(){focus.kind='';focus.entity='';graphView=[0,0,900,560];renderKnowledge();if(typeof applyGraphView==='function')applyGraphView();}
 function valueCell(f){if(f.ref)return entityButton(f.ref);if(isCid(f.v)){var a=node('a','kb-cid-inline',f.v);a.href=host.blockHref?host.blockHref(f.v):('/ipld/'+encodeURIComponent(f.v));return a;}return node('span','',value(f.v));}
 function renderKnowledge(){
@@ -3672,18 +3675,25 @@ summary.textContent=n?t(km.kinds.length+' 種類・'+n+' 件のもの・'+km.lin
 km.kinds.length+' kinds · '+n+' things · '+km.links.length+' connections (inferred from '+rows.length+' loaded facts)'):'';
 set('graph-nodes',String(n));set('graph-edges',String(km.links.length));
 document.getElementById('graph-view-empty').hidden=n!==0||!rows.length&&!lastDb;document.getElementById('km-body').hidden=n===0;
-var kindsEl=document.getElementById('km-kinds');kindsEl.textContent='';
-km.kinds.forEach(function(k){var card=node('button','kb-km-kind kb-km-c'+(k.index%6));card.type='button';card.setAttribute('aria-pressed',focus.kind===k.name?'true':'false');
-card.appendChild(node('strong','kb-km-kind-name',k.name));card.appendChild(node('span','kb-km-kind-count',t(k.entities.length+' 件',k.entities.length+' things')));
-card.appendChild(node('span','kb-km-kind-attrs',k.attrOrder.slice(0,4).map(function(a){return a.name;}).join(' · ')));
-card.appendChild(node('span','kb-km-kind-examples',t('例: ','e.g. ')+k.entities.slice(0,3).map(function(en){return en.label.length>24?en.label.slice(0,23)+'…':en.label;}).join(t('、',', '))));
-card.addEventListener('click',function(){focus.kind===k.name&&!focus.entity?showAll():showKind(k.name);});kindsEl.appendChild(card);});
+renderKinds();
 var crumbs=document.getElementById('km-crumbs');crumbs.textContent='';
 var all=node('button','kb-km-link',t('全体','Everything'));all.type='button';all.addEventListener('click',showAll);crumbs.appendChild(all);
 if(focus.kind){crumbs.appendChild(node('span','kb-km-sep','›'));var kb=node('button','kb-km-link',focus.kind);kb.type='button';kb.addEventListener('click',function(){showKind(focus.kind);});crumbs.appendChild(kb);}
 if(focus.entity){crumbs.appendChild(node('span','kb-km-sep','›'));crumbs.appendChild(node('span','',km.byId[focus.entity].label));}
 drawMap();renderFocusList();renderEntity();renderSearch();
 var reset=document.getElementById('km-canvas-reset');if(reset)reset.hidden=!focus.entity;
+}
+function wholeLine(name){var c=whole.counts[name];if(!c)return '';if(c.pending)return t('DB 全体: 集計中…','Whole database: counting…');if(c.err)return t('DB 全体: 集計できません','Whole database: could not count');return t('DB 全体: '+c.n.toLocaleString()+' 件','Whole database: '+c.n.toLocaleString());}
+function renderKinds(){
+var kindsEl=document.getElementById('km-kinds');if(!kindsEl)return;kindsEl.textContent='';
+km.kinds.forEach(function(k){var card=node('button','kb-km-kind kb-km-c'+(k.index%6));card.type='button';card.setAttribute('aria-pressed',focus.kind===k.name?'true':'false');
+card.appendChild(node('strong','kb-km-kind-name',k.name));card.appendChild(node('span','kb-km-kind-count',t('読み込み範囲 '+k.entities.length+' 件',k.entities.length+' loaded')));var wl=wholeLine(k.name);if(wl)card.appendChild(node('span','kb-km-kind-whole',wl));
+card.appendChild(node('span','kb-km-kind-attrs',k.attrOrder.slice(0,4).map(function(a){return a.name;}).join(' · ')));
+card.appendChild(node('span','kb-km-kind-examples',t('例: ','e.g. ')+k.entities.slice(0,3).map(function(en){return en.label.length>24?en.label.slice(0,23)+'…':en.label;}).join(t('、',', '))));
+card.addEventListener('click',function(){focus.kind===k.name&&!focus.entity?showAll():showKind(k.name);});kindsEl.appendChild(card);});
+schemaOnlyKinds().forEach(function(x,i){var card=node('button','kb-km-kind kb-km-kind--unloaded kb-km-c'+((km.kinds.length+i)%6));card.type='button';
+card.appendChild(node('strong','kb-km-kind-name',x.name));card.appendChild(node('span','kb-km-kind-count',t('読み込み範囲外','Not in the loaded window')));var wl=wholeLine(x.name);if(wl)card.appendChild(node('span','kb-km-kind-whole',wl));
+card.appendChild(node('span','kb-km-kind-examples',t('選ぶと読み込みます','Select to load')));card.addEventListener('click',function(){loadKind(x.name,x.attr);});kindsEl.appendChild(card);});
 }
 function renderFocusList(){
 var box=document.getElementById('km-list'),title=document.getElementById('km-list-title');box.textContent='';
@@ -3743,10 +3753,45 @@ function searchLocal(q){q=q.trim().toLowerCase();if(!q)return [];var hits=[];km.
 function renderSearch(){var input=document.getElementById('km-search'),box=document.getElementById('km-search-results');if(!input||!box)return;box.textContent='';var q=input.value;if(!q.trim()){box.hidden=true;return;}
 var hits=searchLocal(q);box.hidden=false;
 if(!hits.length){box.appendChild(node('li','kb-footnote kb-mut',t('読み込んだ範囲には見つかりません。','Not found in the loaded facts.')));}
-hits.forEach(function(h){var li=node('li');li.appendChild(entityButton(h.en));li.appendChild(node('span','kb-footnote kb-mut',' '+h.en.kind+(h.why!==h.en.label?' · '+clip(h.why,60):'')));box.appendChild(li);});}
+var extra=node('li'),wb=node('button','kb-km-link',t('DB 全体で「'+q.trim()+'」を探す','Search the whole database for “'+q.trim()+'”'));wb.type='button';wb.addEventListener('click',function(){searchWhole(q);});extra.appendChild(wb);var st=node('span','kb-footnote kb-mut',' ');st.id='km-search-whole-state';extra.appendChild(st);
+hits.forEach(function(h){var li=node('li');li.appendChild(entityButton(h.en));li.appendChild(node('span','kb-footnote kb-mut',' '+h.en.kind+(h.why!==h.en.label?' · '+clip(h.why,60):'')));box.appendChild(li);});box.appendChild(extra);}
 (function(){var input=document.getElementById('km-search');if(!input)return;input.addEventListener('input',renderSearch);
 input.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();var first=searchLocal(input.value)[0];if(first)showEntity(first.en.id);}if(e.key==='Escape'){input.value='';renderSearch();}});
 var reset=document.getElementById('km-canvas-reset');if(reset)reset.addEventListener('click',function(){var en=focus.entity&&km.byId[focus.entity];if(en){canvasReset(en);relax(220);fitView();renderKnowledge();applyGraphView();}});})();
+function readDatoms(db,index,components,limit){return xrpc('datomic.datoms',{db_name:db,index:index,components_edn:components,limit:limit}).then(function(d){if(d&&d.ok===false)throw new Error(d.message||d.error||'datoms refused');var r=(d&&(d.datoms||d.rows))||[];return Array.isArray(r)?r:[];});}
+function readQ(db,edn){return xrpc('datomic.q',{db_name:db,query_edn:edn}).then(function(d){if(d&&d.ok===false)throw new Error(d.message||d.error||'query refused');var r=(d&&(d.rows||d.result))||d;return Array.isArray(r)?r:[];});}
+function kw(a){a=attrName(a);var parts=a.split('/');return parts.length<=2&&parts.every(function(p){return /^[A-Za-z0-9._*+!?<>=-]+$/.test(p);})?':'+a:null;}
+function first(r){return Array.isArray(r)?r[0]:r;}
+function tripleKey(tri){return value(tri[0])+'|'+attrName(tri[1])+'|'+value(tri[2]);}
+function merge(extra){var seen=Object.create(null),added=0;rows.forEach(function(r){seen[tripleKey(triple(r))]=1;});extra.forEach(function(r){var k=tripleKey(triple(r));if(!seen[k]){seen[k]=1;rows.push(r);added++;}});return added;}
+var whole={db:'',counts:Object.create(null),schema:[]},enrichGen=0,fetched=Object.create(null);
+function kindAttrs(){var m=Object.create(null);km.kinds.forEach(function(k){if(k.attrOrder[0])m[k.name]=k.attrOrder[0].full;});whole.schema.forEach(function(a){var k=kindOf(a);if(k&&!m[k])m[k]=a;});return m;}
+function schemaOnlyKinds(){var seen=Object.create(null),out=[];km.kinds.forEach(function(k){seen[k.name]=1;});whole.schema.forEach(function(a){var k=kindOf(a);if(k&&!seen[k]){seen[k]=1;out.push({name:k,attr:a});}});return out;}
+function enrich(db){var gen=++enrichGen;whole={db:db,counts:Object.create(null),schema:[]};fetched=Object.create(null);
+readQ(db,'{:find [?i] :where [[?a :db/ident ?i]] :limit 5000}').then(function(r){if(gen!==enrichGen)return;
+whole.schema=r.map(function(x){return attrName(first(x));}).filter(function(a){var k=kindOf(a);return k&&k!=='db'&&k.indexOf('db.')!==0&&k!=='fressian';});}).catch(function(){})
+.then(function(){if(gen!==enrichGen)return;renderKnowledge();countKinds(db,gen);});}
+function countKinds(db,gen){var m=kindAttrs(),names=Object.keys(m),i=0;
+function next(){if(gen!==enrichGen||i>=names.length)return;var name=names[i++],a=kw(m[name]);if(!a){next();return;}whole.counts[name]={pending:true};
+readQ(db,'{:find [(count-distinct ?e)] :where [[?e '+a+' _]]}').then(function(r){whole.counts[name]={n:Number(first(r.length?r[0]:0))||0,attr:m[name]};})
+.catch(function(e){whole.counts[name]={err:String((e&&e.message)||e),attr:m[name]};}).then(function(){if(gen===enrichGen)renderKinds();next();});}
+next();next();next();}
+function ensureEntity(en){if(!lastDb||fetched[en.id])return Promise.resolve(false);fetched[en.id]=1;
+return Promise.all([readDatoms(lastDb,'eavt',[en.raw],500).catch(function(){return [];}),readDatoms(lastDb,'vaet',[en.raw],200).catch(function(){return [];})])
+.then(function(both){var added=merge(both[0].concat(both[1])),need=[],named=Object.create(null);
+rows.forEach(function(x){var tr=triple(x);if(labelKeys.indexOf(shortAttr(tr[1]))!==-1)named[value(tr[0])]=1;});
+both[1].forEach(function(r){var e=triple(r)[0],k=value(e);if(need.length<20&&!named[k]&&!fetched[k]){named[k]=1;need.push(e);}});
+return Promise.all(need.map(function(e){return readDatoms(lastDb,'eavt',[e],100).catch(function(){return [];});}))
+.then(function(lists){added+=merge([].concat.apply([],lists));return added>0;});});}
+function loadKind(name,attr){if(!lastDb)return;say(t(name+' を読み込んでいます…','Loading '+name+'…'),false);
+readDatoms(lastDb,'aevt',[kw(attr)],200).then(function(r){merge(r);render();say('',false);showKind(name);}).catch(function(e){say(t('読み込めませんでした（'+e.message+'）。','Could not load ('+e.message+').'),true);});}
+function labelAttrs(){var out=[],seen=Object.create(null);function add(a){a=attrName(a);var s=a.indexOf('/')>0?a.slice(a.indexOf('/')+1):a;if(labelKeys.indexOf(s)!==-1&&!seen[a]&&kw(a)){seen[a]=1;out.push(a);}}
+km.kinds.forEach(function(k){k.attrOrder.forEach(function(x){add(x.full);});});whole.schema.forEach(add);return out;}
+function searchWhole(qtext){var attrs=labelAttrs(),needle=JSON.stringify(qtext.trim().toLowerCase()),box=document.getElementById('km-search-whole-state');
+if(!lastDb||!attrs.length){box.textContent=t('名前の項目が見つからないため、DB 全体は検索できません。','No name-like fields found, so the whole database cannot be searched.');return;}
+box.textContent=t('DB 全体を検索しています…','Searching the whole database…');
+Promise.all(attrs.map(function(a){return readQ(lastDb,'{:find [?e ?v] :where [[?e '+kw(a)+' ?v] [(lower-case ?v) ?l] [(includes? ?l '+needle+')]] :limit 20}').then(function(r){return r.map(function(x){return [x[0],':'+a,x[1]];});}).catch(function(){return [];});}))
+.then(function(lists){var hits=[].concat.apply([],lists);merge(hits);render();var st=document.getElementById('km-search-whole-state');if(st)st.textContent=t('DB 全体で '+hits.length+' 件見つかりました。','Found '+hits.length+' in the whole database.');});}
 function renderSchema(){
 var body=document.getElementById('schema-view-rows'),empty=document.getElementById('schema-view-empty');if(!body)return;body.textContent='';var attrs=0;
 km.kinds.forEach(function(k){var tr=node('tr'),th=node('th');th.scope='row';var b=node('button','kb-km-link',k.name);b.type='button';b.addEventListener('click',function(){location.hash=prefix+'graph';showKind(k.name);});th.appendChild(b);tr.appendChild(th);
@@ -3763,8 +3808,8 @@ function load(source){
 var panel=source.closest('[data-panel]'),db=panel.querySelector('[data-explore-db]').value.trim(),limit=parseInt(panel.querySelector('[data-explore-limit]').value,10)||500;
 if(!db){say(t('データベース名を入力してください。','Enter a database name.'),true);panel.querySelector('[data-explore-db]').focus();return;}
 syncInputs(db,limit);lastDb=db;say(t('読み込んでいます…','Loading…'),false);each(document.querySelectorAll('[data-explore-load]'),function(b){b.disabled=true;});
-xrpc('datomic.q',{db_name:db,query_edn:defaultQuery+limit+'}'}).then(function(d){
-if(d&&d.ok===false)throw new Error(d.message||d.error||'query refused');var result=(d&&(d.rows||d.result))||d;rows=Array.isArray(result)?result:[];render();say(rows.length?'':t('このデータベースにはまだ事実がありません。','This database has no facts yet.'),false);
+readDatoms(db,'eavt',[],limit).then(function(r){
+rows=r;render();say(rows.length?'':t('このデータベースにはまだ事実がありません。','This database has no facts yet.'),false);if(rows.length)enrich(db);
 }).catch(function(e){rows=[];render();say(e.message==='unauthorized'?t('セッションの有効期限が切れました。データを見るには再度サインインしてください。','Your session expired. Sign in again to explore data.'):t('データを読み込めませんでした（'+((e&&e.message)||'error')+'）。','Could not load data ('+((e&&e.message)||'error')+').'),true);}).then(function(){each(document.querySelectorAll('[data-explore-load]'),function(b){b.disabled=false;});});
 }
 each(document.querySelectorAll('[data-explore-load]'),function(b){b.addEventListener('click',function(){load(b);});});
@@ -3792,8 +3837,8 @@ run=document.getElementById('q-run'), out=document.getElementById('q-out'),
 st=document.getElementById('q-state'),links=document.getElementById('q-links'),historySelect=document.getElementById('q-history'),
 savedSelect=document.getElementById('q-saved'),saveName=document.getElementById('q-save-name'),historyItems=[],savedItems=[];
 if(!db||!lang||!edn||!run||!out) return;
-edn.value='{:find [?e ?a ?v]\n :where [[?e ?a ?v]]\n :limit 25}';
-var examples={datalog:'{:find [?e ?a ?v]\n :where [[?e ?a ?v]]\n :limit 25}',sql:'SELECT e, a, v FROM datoms LIMIT 25',sparql:'SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 25',cypher:'MATCH (n) RETURN n LIMIT 25'};
+edn.value='{:find [?e ?v]\n :where [[?e :db/ident ?v]]\n :limit 25}';
+var examples={datalog:'{:find [?e ?v]\n :where [[?e :db/ident ?v]]\n :limit 25}',sql:'SELECT e, a, v FROM datoms LIMIT 25',sparql:'SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 25',cypher:'MATCH (n) RETURN n LIMIT 25'};
 function qstate(msg,bad){st.textContent=msg||'';st.setAttribute('data-bad',bad?'1':'0');}
 function fillSelect(select,items,placeholder){select.textContent='';var first=document.createElement('option');first.value='';first.textContent=placeholder;select.appendChild(first);for(var i=0;i<items.length;i++){var option=document.createElement('option');option.value=String(i);option.textContent=items[i].name;select.appendChild(option);}}
 function refreshSaved(){return xrpc('savedQuery.list',{}).then(function(d){savedItems=(d&&d.saved_queries)||[];fillSelect(savedSelect,savedItems,t('保存済みクエリを選択','Choose a saved query'));}).catch(function(e){savedItems=[];fillSelect(savedSelect,[],t('保存済みクエリは利用できません','Saved queries unavailable'));qstate(t('保存済みクエリを読み込めませんでした（'+e.message+'）。','Could not load saved queries ('+e.message+').'),true);});}
@@ -3929,18 +3974,37 @@ Promise.resolve().then(function(){if(!host.signOut)throw new Error('Sign out is 
 return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].removeEventListener(x[1],x[2]);});listeners=[];},setAuthGateState:setAuthGateState,signInHref:signInHref};
 }};
 </script>
-    <script>window.cloudKotobaGraph.mount(document.querySelector('.kb-console'),{
+    <script>// Offline fixture that answers like kotobase: index reads through
+// datomic.datoms, Datalog only with the attribute bound ([[?e ?a ?v]] is
+// refused, as the server's query gate does). The grant facts sit beyond the
+// loaded window, so whole-database counts, kinds outside the window and
+// incoming references can be tried here.
+var windowFacts=[[10, ':person/name', '川崎 淳'], [10, ':person/affiliation', 20], [11, ':person/name', '佐藤 花子'], [11, ':person/affiliation', 21], [12, ':person/name', 'Alice Chen'], [12, ':person/affiliation', 22], [20, ':org/name', 'Kotoba Labs'], [21, ':org/name', '東京大学'], [22, ':org/name', 'MIT'], [30, ':topic/label', 'グラフデータベース'], [31, ':topic/label', 'オントロジー'], [32, ':topic/label', 'コンテンツアドレス'], [1, ':paper/title', 'データム設計の実践'], [1, ':paper/year', 2025], [1, ':paper/author', 10], [1, ':paper/author', 11], [1, ':paper/topic', 30], [1, ':paper/topic', 31], [2, ':paper/title', 'CID で考える永続化'], [2, ':paper/year', 2026], [2, ':paper/author', 10], [2, ':paper/topic', 32], [3, ':paper/title', '推定オントロジーの可視化'], [3, ':paper/year', 2026], [3, ':paper/author', 11], [3, ':paper/author', 12], [3, ':paper/topic', 31], [4, ':paper/title', 'Graph UX for knowledge bases'], [4, ':paper/year', 2024], [4, ':paper/author', 12], [4, ':paper/topic', 30], [2, ':paper/cid', 'bafyreigh2akiscaildcqabsyg3dfr6chu3fgpregiymsck7e7aqa4s52zy']],beyond=[[40, ':grant/title', '科研費 基盤研究(B)'], [40, ':grant/pi', 11], [41, ':grant/title', 'JST さきがけ'], [41, ':grant/pi', 10]],all=windowFacts.concat(beyond);
+function attrAfter(q){return q.split(':where [[?e ')[1].split(' ')[0];}
+function answer(path,body){
+  if(path.endsWith('.usageGet'))return {tier:'OFFLINE FIXTURE',tenantDid:'did:example:fixture'};
+  if(path.endsWith('.datomic.listDatabases'))return {databases:[{db_name:'fixture-db',status:'active',kind:'user'}]};
+  if(path.endsWith('.datomic.datoms')){var c=body.components_edn||[],k=String(c[0]),lim=body.limit||500,r;
+    if(body.index==='eavt')r=c.length?all.filter(function(d){return String(d[0])===k;}):windowFacts;
+    else if(body.index==='vaet')r=all.filter(function(d){return String(d[2])===k;});
+    else if(body.index==='aevt')r=all.filter(function(d){return d[1]===k;});else r=[];
+    return {ok:true,datoms:r.slice(0,lim)};}
+  if(path.endsWith('.datomic.q')){var q=body.query_edn||'';
+    if(q.indexOf('[[?e ?a ?v]]')!==-1)return {ok:false,error:'QueryRefused',message:'variable-attribute'};
+    if(q.indexOf(':db/ident')!==-1){var seen={};all.forEach(function(d){seen[d[1]]=1;});return {rows:Object.keys(seen).map(function(a){return [a];})};}
+    if(q.indexOf('count-distinct')!==-1){var a=attrAfter(q),es={};all.forEach(function(d){if(d[1]===a)es[d[0]]=1;});return {rows:[[Object.keys(es).length]]};}
+    if(q.indexOf('includes?')!==-1){var a2=attrAfter(q),needle=q.split(String.fromCharCode(34))[1];return {rows:all.filter(function(d){return d[1]===a2&&String(d[2]).toLowerCase().indexOf(needle)!==-1;}).map(function(d){return [d[0],d[2]];})};}
+    return {rows:[]};}
+  if(path.endsWith('.savedQuery.list'))return {saved_queries:[]};
+  if(path.indexOf('/pins?')===0)return {results:[]};
+  if(path.indexOf('/v1/audit?')===0)return {data:[]};
+  return null;}
+window.cloudKotobaGraph.mount(document.querySelector('.kb-console'),{
   // Offline fixture acts as a signed-in host; hide auth-gates up front.
   authGateState:null,
-  request:function(path){
-    var body=null;
-    if(path.endsWith('.usageGet'))body={tier:'OFFLINE FIXTURE',tenantDid:'did:example:fixture'};
-    else if(path.endsWith('.datomic.listDatabases'))body={databases:[{db_name:'fixture-db',status:'active',kind:'user'}]};
-    else if(path.endsWith('.datomic.q')||path.endsWith('.kg.query'))body={rows:[[10, ':person/name', '川崎 淳'], [10, ':person/affiliation', 20], [11, ':person/name', '佐藤 花子'], [11, ':person/affiliation', 21], [12, ':person/name', 'Alice Chen'], [12, ':person/affiliation', 22], [20, ':org/name', 'Kotoba Labs'], [21, ':org/name', '東京大学'], [22, ':org/name', 'MIT'], [30, ':topic/label', 'グラフデータベース'], [31, ':topic/label', 'オントロジー'], [32, ':topic/label', 'コンテンツアドレス'], [1, ':paper/title', 'データム設計の実践'], [1, ':paper/year', 2025], [1, ':paper/author', 10], [1, ':paper/author', 11], [1, ':paper/topic', 30], [1, ':paper/topic', 31], [2, ':paper/title', 'CID で考える永続化'], [2, ':paper/year', 2026], [2, ':paper/author', 10], [2, ':paper/topic', 32], [3, ':paper/title', '推定オントロジーの可視化'], [3, ':paper/year', 2026], [3, ':paper/author', 11], [3, ':paper/author', 12], [3, ':paper/topic', 31], [4, ':paper/title', 'Graph UX for knowledge bases'], [4, ':paper/year', 2024], [4, ':paper/author', 12], [4, ':paper/topic', 30], [2, ':paper/cid', 'bafyreigh2akiscaildcqabsyg3dfr6chu3fgpregiymsck7e7aqa4s52zy']]};
-    else if(path.endsWith('.savedQuery.list'))body={saved_queries:[]};
-    else if(path.indexOf('/pins?')===0)body={results:[]};
-    else if(path.indexOf('/v1/audit?')===0)body={data:[]};
-    return Promise.resolve(new Response(JSON.stringify(body||{error:'Not implemented in offline fixture'}),{status:body?200:501,headers:{'content-type':'application/json'}}));
+  request:function(path,options){var body={};try{body=JSON.parse((options&&options.body)||'{}');}catch(e){}
+    var out=answer(path,body),refused=out&&out.ok===false;
+    return Promise.resolve(new Response(JSON.stringify(out||{error:'Not implemented in offline fixture'}),{status:out?(refused?400:200):501,headers:{'content-type':'application/json'}}));
   }
 });
 document.querySelectorAll('[data-explore-db],#q-db').forEach(function(input){input.value='fixture-db';});</script>

@@ -5,18 +5,37 @@
             [jp-go-dds.tokens :as tokens]))
 
 (def fixture-script
-  "window.cloudKotobaGraph.mount(document.querySelector('.kb-console'),{
+  "// Offline fixture that answers like kotobase: index reads through
+// datomic.datoms, Datalog only with the attribute bound ([[?e ?a ?v]] is
+// refused, as the server's query gate does). The grant facts sit beyond the
+// loaded window, so whole-database counts, kinds outside the window and
+// incoming references can be tried here.
+var windowFacts=[[10, ':person/name', '川崎 淳'], [10, ':person/affiliation', 20], [11, ':person/name', '佐藤 花子'], [11, ':person/affiliation', 21], [12, ':person/name', 'Alice Chen'], [12, ':person/affiliation', 22], [20, ':org/name', 'Kotoba Labs'], [21, ':org/name', '東京大学'], [22, ':org/name', 'MIT'], [30, ':topic/label', 'グラフデータベース'], [31, ':topic/label', 'オントロジー'], [32, ':topic/label', 'コンテンツアドレス'], [1, ':paper/title', 'データム設計の実践'], [1, ':paper/year', 2025], [1, ':paper/author', 10], [1, ':paper/author', 11], [1, ':paper/topic', 30], [1, ':paper/topic', 31], [2, ':paper/title', 'CID で考える永続化'], [2, ':paper/year', 2026], [2, ':paper/author', 10], [2, ':paper/topic', 32], [3, ':paper/title', '推定オントロジーの可視化'], [3, ':paper/year', 2026], [3, ':paper/author', 11], [3, ':paper/author', 12], [3, ':paper/topic', 31], [4, ':paper/title', 'Graph UX for knowledge bases'], [4, ':paper/year', 2024], [4, ':paper/author', 12], [4, ':paper/topic', 30], [2, ':paper/cid', 'bafyreigh2akiscaildcqabsyg3dfr6chu3fgpregiymsck7e7aqa4s52zy']],beyond=[[40, ':grant/title', '科研費 基盤研究(B)'], [40, ':grant/pi', 11], [41, ':grant/title', 'JST さきがけ'], [41, ':grant/pi', 10]],all=windowFacts.concat(beyond);
+function attrAfter(q){return q.split(':where [[?e ')[1].split(' ')[0];}
+function answer(path,body){
+  if(path.endsWith('.usageGet'))return {tier:'OFFLINE FIXTURE',tenantDid:'did:example:fixture'};
+  if(path.endsWith('.datomic.listDatabases'))return {databases:[{db_name:'fixture-db',status:'active',kind:'user'}]};
+  if(path.endsWith('.datomic.datoms')){var c=body.components_edn||[],k=String(c[0]),lim=body.limit||500,r;
+    if(body.index==='eavt')r=c.length?all.filter(function(d){return String(d[0])===k;}):windowFacts;
+    else if(body.index==='vaet')r=all.filter(function(d){return String(d[2])===k;});
+    else if(body.index==='aevt')r=all.filter(function(d){return d[1]===k;});else r=[];
+    return {ok:true,datoms:r.slice(0,lim)};}
+  if(path.endsWith('.datomic.q')){var q=body.query_edn||'';
+    if(q.indexOf('[[?e ?a ?v]]')!==-1)return {ok:false,error:'QueryRefused',message:'variable-attribute'};
+    if(q.indexOf(':db/ident')!==-1){var seen={};all.forEach(function(d){seen[d[1]]=1;});return {rows:Object.keys(seen).map(function(a){return [a];})};}
+    if(q.indexOf('count-distinct')!==-1){var a=attrAfter(q),es={};all.forEach(function(d){if(d[1]===a)es[d[0]]=1;});return {rows:[[Object.keys(es).length]]};}
+    if(q.indexOf('includes?')!==-1){var a2=attrAfter(q),needle=q.split(String.fromCharCode(34))[1];return {rows:all.filter(function(d){return d[1]===a2&&String(d[2]).toLowerCase().indexOf(needle)!==-1;}).map(function(d){return [d[0],d[2]];})};}
+    return {rows:[]};}
+  if(path.endsWith('.savedQuery.list'))return {saved_queries:[]};
+  if(path.indexOf('/pins?')===0)return {results:[]};
+  if(path.indexOf('/v1/audit?')===0)return {data:[]};
+  return null;}
+window.cloudKotobaGraph.mount(document.querySelector('.kb-console'),{
   // Offline fixture acts as a signed-in host; hide auth-gates up front.
   authGateState:null,
-  request:function(path){
-    var body=null;
-    if(path.endsWith('.usageGet'))body={tier:'OFFLINE FIXTURE',tenantDid:'did:example:fixture'};
-    else if(path.endsWith('.datomic.listDatabases'))body={databases:[{db_name:'fixture-db',status:'active',kind:'user'}]};
-    else if(path.endsWith('.datomic.q')||path.endsWith('.kg.query'))body={rows:[[10, ':person/name', '川崎 淳'], [10, ':person/affiliation', 20], [11, ':person/name', '佐藤 花子'], [11, ':person/affiliation', 21], [12, ':person/name', 'Alice Chen'], [12, ':person/affiliation', 22], [20, ':org/name', 'Kotoba Labs'], [21, ':org/name', '東京大学'], [22, ':org/name', 'MIT'], [30, ':topic/label', 'グラフデータベース'], [31, ':topic/label', 'オントロジー'], [32, ':topic/label', 'コンテンツアドレス'], [1, ':paper/title', 'データム設計の実践'], [1, ':paper/year', 2025], [1, ':paper/author', 10], [1, ':paper/author', 11], [1, ':paper/topic', 30], [1, ':paper/topic', 31], [2, ':paper/title', 'CID で考える永続化'], [2, ':paper/year', 2026], [2, ':paper/author', 10], [2, ':paper/topic', 32], [3, ':paper/title', '推定オントロジーの可視化'], [3, ':paper/year', 2026], [3, ':paper/author', 11], [3, ':paper/author', 12], [3, ':paper/topic', 31], [4, ':paper/title', 'Graph UX for knowledge bases'], [4, ':paper/year', 2024], [4, ':paper/author', 12], [4, ':paper/topic', 30], [2, ':paper/cid', 'bafyreigh2akiscaildcqabsyg3dfr6chu3fgpregiymsck7e7aqa4s52zy']]};
-    else if(path.endsWith('.savedQuery.list'))body={saved_queries:[]};
-    else if(path.indexOf('/pins?')===0)body={results:[]};
-    else if(path.indexOf('/v1/audit?')===0)body={data:[]};
-    return Promise.resolve(new Response(JSON.stringify(body||{error:'Not implemented in offline fixture'}),{status:body?200:501,headers:{'content-type':'application/json'}}));
+  request:function(path,options){var body={};try{body=JSON.parse((options&&options.body)||'{}');}catch(e){}
+    var out=answer(path,body),refused=out&&out.ok===false;
+    return Promise.resolve(new Response(JSON.stringify(out||{error:'Not implemented in offline fixture'}),{status:out?(refused?400:200):501,headers:{'content-type':'application/json'}}));
   }
 });
 document.querySelectorAll('[data-explore-db],#q-db').forEach(function(input){input.value='fixture-db';});")

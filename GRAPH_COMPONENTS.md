@@ -32,7 +32,29 @@ thing. The map shows kind cards (count, fields, examples), a kind graph
 neighbours in both directions. The ontology panel is the same model as a
 table (fields with type and coverage, links per kind); the datom table names
 entities and linked values. All of it is inferred from the loaded window and
-the panels say so. Billing, readiness claims,
+the panels say so.
+
+Reads follow kotobase's query gate (2026-09-25), which refuses any clause with
+neither the entity nor the attribute bound (`[[?e ?a ?v]]` is refused as
+`:variable-attribute`). So:
+
+- the window is `datomic.datoms` over `:eavt` with a limit (whole entities);
+- each kind's whole-database count is `(count-distinct ?e)` over its most
+  common attribute (a lower bound for the kind), and kinds the window did not
+  reach are found through `:db/ident` and listed via `:aevt`;
+- selecting a thing reads its own facts (`:eavt [id]`) and what refers to it
+  (`:vaet [id]`, reference values only), naming referrers from outside the
+  window;
+- search matches the loaded window as you type, and "search the whole
+  database" runs `lower-case` + `includes?` on each name-like attribute.
+
+The host must let `datomic.datoms` through its gateway and give it the same
+read-only authorization as `datomic.q`.
+
+Selecting a thing adds it and its neighbours to an exploration canvas;
+selecting one already there expands it in place. A small force layout places
+nodes, a dragged node stays pinned, labels keep their on-screen size at any
+zoom. Billing, readiness claims,
 account headers, telemetry, and login policy are not library defaults.
 Include the DADS stylesheet, token bridge and exported `page-css`.
 

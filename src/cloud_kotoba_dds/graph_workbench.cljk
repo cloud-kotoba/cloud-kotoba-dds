@@ -373,7 +373,10 @@ window.cloudKotobaGraph={mount:function(root,host){
         es.forEach(function(e){var dx=e.to.x-e.from.x,dy=e.to.y-e.from.y,d=Math.sqrt(dx*dx+dy*dy)||1,f=(d-190)*.03;e.from.vx+=dx/d*f;e.from.vy+=dy/d*f;e.to.vx-=dx/d*f;e.to.vy-=dy/d*f;});
         ns.forEach(function(n){if(n.pinned){n.vx=0;n.vy=0;return;}n.vx+=(CX-n.x)*.004;n.vy+=(CY-n.y)*.004;n.vx*=.55;n.vy*=.55;n.x+=Math.max(-24,Math.min(24,n.vx));n.y+=Math.max(-24,Math.min(24,n.vy));});}}
     function fitView(){if(!canvas.nodes.length)return;var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;canvas.nodes.forEach(function(n){x0=Math.min(x0,n.x);y0=Math.min(y0,n.y);x1=Math.max(x1,n.x);y1=Math.max(y1,n.y);});
-      var pad=70,w=Math.max(x1-x0+2*pad,420),h=Math.max(y1-y0+2*pad,260),ratio=900/560;if(w/h>ratio)h=w/ratio;else w=h*ratio;graphView=[(x0+x1)/2-w/2,(y0+y1)/2-h/2,w,h];}
+      var svgEl=document.getElementById('graph-view-svg'),box=svgEl&&svgEl.getBoundingClientRect(),rw=(box&&box.width)||560,ratio=box&&box.width&&box.height?box.width/box.height:900/560,pad=70,w=Math.max(x1-x0+2*pad,420),h=Math.max(y1-y0+2*pad,260);
+      // labels keep their screen size, so widen the frame by each label's half width in view units
+      var sc=w/rw,half=function(n){var l=clip(n.entity.label,20),px=0;for(var i=0;i<l.length;i++)px+=l.charCodeAt(i)>255?14:8;return px/2+22;};
+      canvas.nodes.forEach(function(n){x0=Math.min(x0,n.x-half(n)*sc+pad);x1=Math.max(x1,n.x+half(n)*sc-pad);});w=Math.max(x1-x0+2*pad,420);if(w/h>ratio)h=w/ratio;else w=h*ratio;graphView=[(x0+x1)/2-w/2,(y0+y1)/2-h/2,w,h];}
     var labelKeys=['name','title','label','display-name','displayName','ident','summary','text','content','email','url'];
     function attrName(a){a=value(a);return a.charAt(0)===':'?a.slice(1):a;}
     function kindOf(a){var n=attrName(a),i=n.indexOf('/');return i>0?n.slice(0,i):'';}
@@ -534,7 +537,12 @@ window.cloudKotobaGraph={mount:function(root,host){
     // a thing's facts beyond the window: everything it says, and every ref to it
     function ensureEntity(en){if(!lastDb||fetched[en.id])return Promise.resolve(false);fetched[en.id]=1;
       return Promise.all([readDatoms(lastDb,'eavt',[en.raw],500).catch(function(){return [];}),readDatoms(lastDb,'vaet',[en.raw],200).catch(function(){return [];})])
-        .then(function(both){return merge(both[0].concat(both[1]))>0;});}
+        .then(function(both){var added=merge(both[0].concat(both[1])),need=[],named=Object.create(null);
+          // things that point here from outside the window arrive nameless: read their own facts too
+          rows.forEach(function(x){var tr=triple(x);if(labelKeys.indexOf(shortAttr(tr[1]))!==-1)named[value(tr[0])]=1;});
+          both[1].forEach(function(r){var e=triple(r)[0],k=value(e);if(need.length<20&&!named[k]&&!fetched[k]){named[k]=1;need.push(e);}});
+          return Promise.all(need.map(function(e){return readDatoms(lastDb,'eavt',[e],100).catch(function(){return [];});}))
+            .then(function(lists){added+=merge([].concat.apply([],lists));return added>0;});});}
     // a kind the window did not reach: list its members from the attribute index
     function loadKind(name,attr){if(!lastDb)return;say(t(name+' を読み込んでいます…','Loading '+name+'…'),false);
       readDatoms(lastDb,'aevt',[kw(attr)],200).then(function(r){merge(r);render();say('',false);showKind(name);}).catch(function(e){say(t('読み込めませんでした（'+e.message+'）。','Could not load ('+e.message+').'),true);});}
@@ -839,7 +847,7 @@ return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].remo
    ".kb-km-center circle{stroke-width:4;}.kb-km-count{font-size:13px;font-weight:700;}.kb-km-arrow{fill:var(--color-neutral-solid-gray-500);}\n"
    ".kb-graph-node{cursor:pointer;}\n"
    ".kb-km-search{margin-block:.5rem 1rem;max-width:32rem;}.kb-km-results{border:1px solid var(--color-neutral-solid-gray-200);border-radius:.5rem;padding:.25rem .75rem;margin-top:.5rem;}\n"
-   ".kb-km-pinned circle{stroke-dasharray:4 3;}#km-canvas-reset[hidden],.kb-km-results[hidden]{display:none;}.kb-km-kind-whole{font-size:.8125rem;font-weight:600;}.kb-km-kind--unloaded{border-style:dashed;border-inline-start-style:solid;}\n"
+   ".kb-km-map .kb-actions{display:flex;flex-wrap:wrap;gap:.25rem;}.kb-km-map .kb-actions .dads-button{width:auto;}@media(max-width:48rem){.kb-km-map .kb-graph{aspect-ratio:4/5;}}.kb-km-pinned circle{stroke-dasharray:4 3;}#km-canvas-reset[hidden],.kb-km-results[hidden]{display:none;}.kb-km-kind-whole{font-size:.8125rem;font-weight:600;}.kb-km-kind--unloaded{border-style:dashed;border-inline-start-style:solid;}\n"
    "@media(min-width:64rem){.kb-km-layout{grid-template-columns:minmax(0,3fr) minmax(16rem,2fr);align-items:start;}}\n"
    ".kb-about{margin-block:1.5rem;padding:1rem;border:1px solid var(--color-neutral-solid-gray-200);border-radius:.5rem;}\n"
    ".kb-about summary{cursor:pointer;font-weight:600;padding-block:.625rem;}\n"
