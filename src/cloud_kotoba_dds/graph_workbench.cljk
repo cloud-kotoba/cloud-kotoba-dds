@@ -5,7 +5,7 @@
   (:require [kotoba.lang.text :as str]
             [jp-go-dds.core :as dds]))
 
-(def panels [{:id "overview" :label "概要"} {:id "graph" :label "グラフ"} {:id "ontology" :label "オントロジー"} {:id "datoms" :label "データム"} {:id "query" :label "クエリ"} {:id "pins" :label "Pins / CID"} {:id "keys" :label "Keys / 認可"} {:id "activity" :label "履歴"} {:id "plan" :label "設定"}])
+(def panels [{:id "overview" :label "概要"} {:id "graph" :label "ナレッジマップ"} {:id "ontology" :label "オントロジー"} {:id "datoms" :label "データム"} {:id "query" :label "クエリ"} {:id "pins" :label "Pins / CID"} {:id "keys" :label "Keys / 認可"} {:id "activity" :label "履歴"} {:id "plan" :label "設定"}])
 
 (defn- t
   "Localized copy. :locale :en opts into the English text; anything else —
@@ -18,7 +18,7 @@
   "English nav labels for :locale :en. `panels` keeps its Japanese :label
    values for compatibility; view picks the label per locale."
   {"overview" "Overview"
-   "graph" "Graph"
+   "graph" "Knowledge map"
    "ontology" "Ontology"
    "datoms" "Datoms"
    "query" "Query"
@@ -294,7 +294,7 @@ window.cloudKotobaGraph={mount:function(root,host){
         confirmButton=document.getElementById('db-tombstone-run'),cancelButton=document.getElementById('db-tombstone-cancel'),selected='';
     if(!body)return;
     function dbState(msg,bad){stateEl.textContent=msg||'';stateEl.setAttribute('data-bad',bad?'1':'0');}
-    function useDatabase(name){var fields=document.querySelectorAll('[data-explore-db],#q-db');for(var i=0;i<fields.length;i++)fields[i].value=name;location.hash=prefix+'datoms';var loadButton=document.querySelector('#datoms [data-explore-load]');if(loadButton)setTimeout(function(){loadButton.click();},0);}
+    function useDatabase(name){var fields=document.querySelectorAll('[data-explore-db],#q-db');for(var i=0;i<fields.length;i++)fields[i].value=name;location.hash=prefix+'graph';var loadButton=document.querySelector('#graph [data-explore-load]');if(loadButton)setTimeout(function(){loadButton.click();},0);}
     // The catalog is the pick-list for every database field (datalist), and
     // an empty field starts on the first usable database, so a panel opened
     // from the nav is ready to load without typing a handle.
@@ -347,47 +347,139 @@ window.cloudKotobaGraph={mount:function(root,host){
       var body=document.getElementById('table-view-rows'), empty=document.getElementById('table-view-empty');if(!body)return;
       body.textContent='';var shown=filtered();empty.hidden=shown.length!==0;
       for(var i=0;i<shown.length;i++){var tri=triple(shown[i]),tr=document.createElement('tr');
-        for(var j=0;j<3;j++){var td=document.createElement('td'),cell=value(tri[j]);if(typeof tri[j]==='string'&&/^b[a-z2-7]{30,}$/.test(tri[j])){var link=document.createElement('a');link.href=host.blockHref?host.blockHref(tri[j]):('/ipld/'+encodeURIComponent(tri[j]));link.textContent=cell;td.appendChild(link);}else{td.textContent=cell;}tr.appendChild(td);}body.appendChild(tr);
+        var named=km.byId[value(tri[0])],target=(typeof tri[2]==='number'||typeof tri[2]==='string')&&value(tri[2])!==value(tri[0])?km.byId[value(tri[2])]:null;
+        for(var j=0;j<3;j++){var td=document.createElement('td'),cell=value(tri[j]);if(j===0&&named&&named.label!=='#'+named.id)cell=named.label+' #'+value(tri[0]);if(j===2&&target)cell='→ '+target.label+' #'+value(tri[2]);if(typeof tri[j]==='string'&&/^b[a-z2-7]{30,}$/.test(tri[j])){var link=document.createElement('a');link.href=host.blockHref?host.blockHref(tri[j]):('/ipld/'+encodeURIComponent(tri[j]));link.textContent=cell;td.appendChild(link);}else{td.textContent=cell;}tr.appendChild(td);}body.appendChild(tr);
       }
       set('table-visible',String(shown.length));set('table-total',String(rows.length));
       var exportButton=document.getElementById('table-export');if(exportButton)exportButton.disabled=shown.length===0;
     }
-    function renderSchema(){
-      var body=document.getElementById('schema-view-rows'),empty=document.getElementById('schema-view-empty');if(!body)return;body.textContent='';var attrs=Object.create(null),shown=filtered();
-      for(var i=0;i<shown.length;i++){var tri=triple(shown[i]),a=value(tri[1]),v=tri[2],type=v===null?'null':(Array.isArray(v)?'array':typeof v);if(!attrs[a])attrs[a]={count:0,types:Object.create(null)};attrs[a].count++;attrs[a].types[type]=true;}
-      var names=Object.keys(attrs).sort();for(var j=0;j<names.length;j++){var tr=document.createElement('tr'),cells=[names[j],attrs[names[j]].count,Object.keys(attrs[names[j]].types).sort().join(', ')];for(var k=0;k<cells.length;k++){var td=document.createElement(k===0?'th':'td');if(k===0)td.scope='row';td.textContent=String(cells[k]);tr.appendChild(td);}body.appendChild(tr);}set('schema-attributes',String(names.length));
-      if(empty)empty.hidden=names.length!==0;
+    // Knowledge model (2026-09-25): the loaded facts grouped into kinds of
+    // things (by attribute namespace), each thing named by its name-like
+    // attribute, linked where a value is another loaded thing. Everything
+    // here is inferred from the loaded window and the views say so.
+    var km={kinds:[],byKind:Object.create(null),byId:Object.create(null),entities:[],links:[]},focus={kind:'',entity:''};
+    var labelKeys=['name','title','label','display-name','displayName','ident','summary','text','content','email','url'];
+    function attrName(a){a=value(a);return a.charAt(0)===':'?a.slice(1):a;}
+    function kindOf(a){var n=attrName(a),i=n.indexOf('/');return i>0?n.slice(0,i):'';}
+    function shortAttr(a){var n=attrName(a),i=n.indexOf('/');return i>0?n.slice(i+1):n;}
+    function isCid(v){return typeof v==='string'&&/^b[a-z2-7]{30,}$/.test(v);}
+    function vtype(f){if(f.ref)return 'ref';var v=f.v;if(v===null||v===undefined)return 'null';if(Array.isArray(v))return 'list';if(isCid(v))return 'cid';return typeof v;}
+    function typeLabel(x){return ({ref:t('参照','link'),string:t('文字列','text'),number:t('数値','number'),boolean:t('真偽','yes/no'),list:t('リスト','list'),cid:'CID',object:t('構造体','map'),'null':t('空','empty')})[x]||x;}
+    function buildModel(){
+      var shown=filtered(),byId=Object.create(null),order=[],links=[],kinds=Object.create(null),list=[];
+      shown.forEach(function(r){var tri=triple(r),id=value(tri[0]);if(!byId[id]){byId[id]={id:id,facts:[],kind:'',label:'',out:[],inc:[]};order.push(byId[id]);}byId[id].facts.push({a:attrName(tri[1]),short:shortAttr(tri[1]),kind:kindOf(tri[1]),v:tri[2]});});
+      order.forEach(function(en){var votes=Object.create(null),best='',bn=0;
+        en.facts.forEach(function(f){if(f.kind&&f.kind!=='db'){votes[f.kind]=(votes[f.kind]||0)+1;if(votes[f.kind]>bn){bn=votes[f.kind];best=f.kind;}}});
+        en.kind=best||t('その他','other');
+        for(var k=0;k<labelKeys.length&&!en.label;k++)en.facts.forEach(function(f){if(!en.label&&f.short===labelKeys[k]&&typeof f.v==='string'&&f.v)en.label=f.v;});
+        if(!en.label)en.facts.forEach(function(f){if(!en.label&&typeof f.v==='string'&&f.v&&f.v.length<80&&!isCid(f.v))en.label=f.v;});
+        if(!en.label)en.label='#'+en.id;});
+      order.forEach(function(en){en.facts.forEach(function(f){var target=(typeof f.v==='number'||typeof f.v==='string')?byId[value(f.v)]:null;
+        if(target&&target!==en){f.ref=target;var l={from:en,to:target,attr:f.short};links.push(l);en.out.push(l);target.inc.push(l);}});});
+      order.forEach(function(en){var k=kinds[en.kind];if(!k){k=kinds[en.kind]={name:en.kind,entities:[],attrs:Object.create(null),attrOrder:[],rel:Object.create(null),relOrder:[]};list.push(k);}k.entities.push(en);
+        var seen=Object.create(null);en.facts.forEach(function(f){var s=k.attrs[f.short];if(!s){s=k.attrs[f.short]={name:f.short,full:f.a,count:0,entities:0,types:Object.create(null),targets:Object.create(null)};k.attrOrder.push(s);}
+          s.count++;if(!seen[f.short]){seen[f.short]=1;s.entities++;}s.types[vtype(f)]=1;if(f.ref)s.targets[f.ref.kind]=1;});});
+      links.forEach(function(l){var key=l.attr+'|'+l.to.kind,k=kinds[l.from.kind],r=k.rel[key];if(!r){r=k.rel[key]={from:l.from.kind,to:l.to.kind,attr:l.attr,count:0};k.relOrder.push(r);}r.count++;});
+      list.forEach(function(k){k.attrOrder.sort(function(a,b){return b.entities-a.entities;});});
+      list.sort(function(a,b){return b.entities.length-a.entities.length;});
+      list.forEach(function(k,i){k.index=i;});
+      km={kinds:list,byKind:kinds,byId:byId,entities:order,links:links};
+      if(focus.entity&&!byId[focus.entity])focus.entity='';if(focus.kind&&!kinds[focus.kind])focus.kind='';
     }
-    function renderGraph(){
-      var svg=document.getElementById('graph-view-svg'), list=document.getElementById('graph-view-list');if(!svg||!list)return;
+    function node(tag,cls,text){var x=document.createElement(tag);if(cls)x.className=cls;if(text!==undefined)x.textContent=text;return x;}
+    function entityButton(en,cls){var b=node('button',cls||'kb-km-link',en.label);b.type='button';b.title=en.kind+' #'+en.id;b.addEventListener('click',function(){showEntity(en.id);});return b;}
+    function showKind(name){focus.kind=name;focus.entity='';renderKnowledge();}
+    function showEntity(id){var en=km.byId[id];if(!en)return;focus.entity=id;focus.kind=en.kind;renderKnowledge();var box=document.getElementById('km-entity');if(box)box.focus();}
+    function showAll(){focus.kind='';focus.entity='';renderKnowledge();}
+    function valueCell(f){if(f.ref)return entityButton(f.ref);if(isCid(f.v)){var a=node('a','kb-cid-inline',f.v);a.href=host.blockHref?host.blockHref(f.v):('/ipld/'+encodeURIComponent(f.v));return a;}return node('span','',value(f.v));}
+    function renderKnowledge(){
+      var summary=document.getElementById('km-summary');if(!summary)return;
+      var n=km.entities.length;
+      summary.textContent=n?t(km.kinds.length+' 種類・'+n+' 件のもの・'+km.links.length+' 件のつながり（読み込んだ '+rows.length+' 件の事実から推定）',
+                             km.kinds.length+' kinds · '+n+' things · '+km.links.length+' connections (inferred from '+rows.length+' loaded facts)'):'';
+      set('graph-nodes',String(n));set('graph-edges',String(km.links.length));
+      document.getElementById('graph-view-empty').hidden=n!==0||!rows.length&&!lastDb;document.getElementById('km-body').hidden=n===0;
+      // kinds: one card per kind of thing, with examples a person can read
+      var kindsEl=document.getElementById('km-kinds');kindsEl.textContent='';
+      km.kinds.forEach(function(k){var card=node('button','kb-km-kind kb-km-c'+(k.index%6));card.type='button';card.setAttribute('aria-pressed',focus.kind===k.name?'true':'false');
+        card.appendChild(node('strong','kb-km-kind-name',k.name));card.appendChild(node('span','kb-km-kind-count',t(k.entities.length+' 件',k.entities.length+' things')));
+        card.appendChild(node('span','kb-km-kind-attrs',k.attrOrder.slice(0,4).map(function(a){return a.name;}).join(' · ')));
+        card.appendChild(node('span','kb-km-kind-examples',t('例: ','e.g. ')+k.entities.slice(0,3).map(function(en){return en.label.length>24?en.label.slice(0,23)+'…':en.label;}).join(t('、',', '))));
+        card.addEventListener('click',function(){focus.kind===k.name&&!focus.entity?showAll():showKind(k.name);});kindsEl.appendChild(card);});
+      // breadcrumb: where the map is looking
+      var crumbs=document.getElementById('km-crumbs');crumbs.textContent='';
+      var all=node('button','kb-km-link',t('全体','Everything'));all.type='button';all.addEventListener('click',showAll);crumbs.appendChild(all);
+      if(focus.kind){crumbs.appendChild(node('span','kb-km-sep','›'));var kb=node('button','kb-km-link',focus.kind);kb.type='button';kb.addEventListener('click',function(){showKind(focus.kind);});crumbs.appendChild(kb);}
+      if(focus.entity){crumbs.appendChild(node('span','kb-km-sep','›'));crumbs.appendChild(node('span','',km.byId[focus.entity].label));}
+      drawMap();renderFocusList();renderEntity();
+    }
+    function renderFocusList(){
+      var box=document.getElementById('km-list'),title=document.getElementById('km-list-title');box.textContent='';
+      var k=focus.kind?km.byKind[focus.kind]:null;document.getElementById('km-list-wrap').hidden=!k||!!focus.entity;if(!k)return;
+      title.textContent=t(k.name+'（'+k.entities.length+' 件）',k.name+' ('+k.entities.length+')');
+      k.entities.slice(0,200).forEach(function(en){var li=node('li');li.appendChild(entityButton(en));var extra=en.facts.filter(function(f){return typeof f.v!=='object'&&!f.ref&&value(f.v)!==en.label;}).slice(0,2).map(function(f){return f.short+': '+value(f.v);}).join(' · ');if(extra)li.appendChild(node('span','kb-footnote kb-mut',' '+extra));box.appendChild(li);});
+    }
+    function renderEntity(){
+      var box=document.getElementById('km-entity'),sel=document.getElementById('graph-selection'),rowsEl=document.getElementById('graph-selection-rows');
+      rowsEl.textContent='';var en=focus.entity?km.byId[focus.entity]:null;box.hidden=!en;
+      if(!en){sel.textContent=focus.kind?t(focus.kind+' を選択中','Showing '+focus.kind):t('種類かノードを選ぶと、そのものの内容とつながりが表示されます。','Pick a kind or a node to see what it holds and how it connects.');return;}
+      sel.textContent=en.label;document.getElementById('km-entity-kind').textContent=en.kind+' · #'+en.id;
+      en.facts.forEach(function(f){var tr=node('tr'),th=node('th','',f.short);th.scope='row';th.title=f.a;tr.appendChild(th);var td=node('td');td.appendChild(valueCell(f));tr.appendChild(td);rowsEl.appendChild(tr);});
+      var inc=document.getElementById('km-incoming');inc.textContent='';document.getElementById('km-incoming-wrap').hidden=!en.inc.length;
+      en.inc.slice(0,100).forEach(function(l){var li=node('li');li.appendChild(entityButton(l.from));li.appendChild(node('span','kb-footnote kb-mut',' ('+l.from.kind+') — '+l.attr));inc.appendChild(li);});
+    }
+    var NS='http://www.w3.org/2000/svg';
+    function el(name,attrs,txt){var x=document.createElementNS(NS,name);for(var k in attrs)x.setAttribute(k,attrs[k]);if(txt!==undefined)x.textContent=txt;return x;}
+    function clip(s,n){return s.length>n?s.slice(0,n-1)+'…':s;}
+    function drawMap(){
+      var svg=document.getElementById('graph-view-svg'),list=document.getElementById('graph-view-list');if(!svg||!list)return;
       while(svg.firstChild)svg.removeChild(svg.firstChild);list.textContent='';
-      document.getElementById('graph-selection').textContent=t('ノードを選択して関係を確認できます。','Select a node to inspect its relationships.');document.getElementById('graph-selection-rows').textContent='';
-      var shown=filtered(), nodes=[], nodeMap=Object.create(null), edges=[];
-      function node(raw,kind){var id=value(raw);if(!nodeMap[id]&&nodes.length<40){nodeMap[id]={id:id,kind:kind,index:nodes.length};nodes.push(nodeMap[id]);}return nodeMap[id];}
-      for(var i=0;i<shown.length&&edges.length<80;i++){var tri=triple(shown[i]),from=node(tri[0],'entity'),to=node(tri[2],'value');if(from&&to)edges.push({from:from,to:to,label:value(tri[1])});}
-      var NS='http://www.w3.org/2000/svg',cx=450,cy=270,rx=350,ry=205;
-      function el(name,attrs,txt){var x=document.createElementNS(NS,name);for(var k in attrs)x.setAttribute(k,attrs[k]);if(txt!==undefined)x.textContent=txt;return x;}
-      for(var n=0;n<nodes.length;n++){var angle=(Math.PI*2*n/Math.max(nodes.length,1))-Math.PI/2;nodes[n].x=cx+Math.cos(angle)*rx;nodes[n].y=cy+Math.sin(angle)*ry;}
-      for(var e=0;e<edges.length;e++){var edge=edges[e];svg.appendChild(el('line',{x1:edge.from.x,y1:edge.from.y,x2:edge.to.x,y2:edge.to.y,class:'kb-graph-edge'}));
-        var label=el('text',{x:(edge.from.x+edge.to.x)/2,y:(edge.from.y+edge.to.y)/2,class:'kb-graph-edge-label'},edge.label.length>18?edge.label.slice(0,17)+'…':edge.label);label.appendChild(el('title',{},edge.label));svg.appendChild(label);}
-      for(var p=0;p<nodes.length;p++){(function(nd){var g=el('g',{class:'kb-graph-node kb-graph-node--'+nd.kind,tabindex:'0',role:'listitem'});g.appendChild(el('circle',{cx:nd.x,cy:nd.y,r:'18'}));var short=nd.id.length>16?nd.id.slice(0,15)+'…':nd.id;var tx=el('text',{x:nd.x,y:nd.y+32,'text-anchor':'middle'},short);tx.appendChild(el('title',{},nd.id));g.appendChild(tx);function select(){
-          var selection=document.getElementById('graph-selection');selection.textContent=nd.id;
-          var details=document.getElementById('graph-selection-rows');details.textContent='';
-          each(svg.querySelectorAll('.kb-graph-node'),function(x){x.removeAttribute('data-selected');});g.setAttribute('data-selected','true');
-          edges.filter(function(e){return e.from===nd||e.to===nd;}).forEach(function(e){var li=document.createElement('li');li.textContent=e.from.id+' — '+e.label+' → '+e.to.id;details.appendChild(li);});
-        }g.addEventListener('click',select);g.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();select();}});svg.appendChild(g);})(nodes[p]);}
-      for(var a=0;a<edges.length;a++){var li=document.createElement('li');li.textContent=edges[a].from.id+' — '+edges[a].label+' → '+edges[a].to.id;list.appendChild(li);}
+      var defs=el('defs',{}),marker=el('marker',{id:'kb-km-arrow',viewBox:'0 0 10 10',refX:'10',refY:'5',markerWidth:'7',markerHeight:'7',orient:'auto-start-reverse'});marker.appendChild(el('path',{d:'M0 0L10 5L0 10z',class:'kb-km-arrow'}));defs.appendChild(marker);svg.appendChild(defs);
+      var nodes=[],edges=[],cx=450,cy=280,rx=330,ry=190;
+      if(focus.entity){
+        // one thing and its neighbours, both directions, named
+        var en=km.byId[focus.entity],seen=Object.create(null);nodes.push({id:en.id,label:en.label,kind:en.kind,r:30,center:true,entity:en});seen[en.id]=nodes[0];
+        en.out.concat(en.inc).forEach(function(l){var other=l.from===en?l.to:l.from;if(!seen[other.id]&&nodes.length<25){seen[other.id]={id:other.id,label:other.label,kind:other.kind,r:20,entity:other};nodes.push(seen[other.id]);}if(seen[other.id])edges.push({from:seen[l.from.id],to:seen[l.to.id],label:l.attr});});
+        nodes[0].x=cx;nodes[0].y=cy;for(var i=1;i<nodes.length;i++){var ang=Math.PI*2*(i-1)/Math.max(nodes.length-1,1)-Math.PI/2;nodes[i].x=cx+Math.cos(ang)*rx*.85;nodes[i].y=cy+Math.sin(ang)*ry;}
+      }else{
+        // the shape of the knowledge: kinds, sized by count, joined by relations
+        var max=1;km.kinds.forEach(function(k){max=Math.max(max,k.entities.length);});
+        km.kinds.slice(0,24).forEach(function(k,i,arr){var ang=Math.PI*2*i/arr.length-Math.PI/2,one=arr.length===1;nodes.push({id:k.name,label:k.name,sub:t(k.entities.length+' 件',String(k.entities.length)),kind:k.name,r:18+28*Math.sqrt(k.entities.length/max),x:one?cx:cx+Math.cos(ang)*rx,y:one?cy:cy+Math.sin(ang)*ry});});
+        var byName=Object.create(null);nodes.forEach(function(n){byName[n.id]=n;});
+        km.kinds.forEach(function(k){k.relOrder.forEach(function(r){if(byName[r.from]&&byName[r.to])edges.push({from:byName[r.from],to:byName[r.to],label:r.attr+(r.count>1?' ×'+r.count:'')});});});
+      }
+      edges.forEach(function(e){list.appendChild(node('li','',e.from.label+' — '+e.label+' → '+e.to.label));
+        if(e.from===e.to){var s=e.from;svg.appendChild(el('path',{d:'M'+(s.x-8)+' '+(s.y-s.r)+' C'+(s.x-40)+' '+(s.y-s.r-60)+' '+(s.x+40)+' '+(s.y-s.r-60)+' '+(s.x+8)+' '+(s.y-s.r),class:'kb-graph-edge','marker-end':'url(#kb-km-arrow)',fill:'none'}));svg.appendChild(el('text',{x:s.x,y:s.y-s.r-48,'text-anchor':'middle',class:'kb-graph-edge-label'},clip(e.label,22)));return;}
+        var dx=e.to.x-e.from.x,dy=e.to.y-e.from.y,d=Math.sqrt(dx*dx+dy*dy)||1,ux=dx/d,uy=dy/d;
+        var x1=e.from.x+ux*e.from.r,y1=e.from.y+uy*e.from.r,x2=e.to.x-ux*(e.to.r+3),y2=e.to.y-uy*(e.to.r+3);
+        svg.appendChild(el('line',{x1:x1,y1:y1,x2:x2,y2:y2,class:'kb-graph-edge','marker-end':'url(#kb-km-arrow)'}));
+        var lab=el('text',{x:(x1+x2)/2,y:(y1+y2)/2-4,'text-anchor':'middle',class:'kb-graph-edge-label'},clip(e.label,22));lab.appendChild(el('title',{},e.label));svg.appendChild(lab);});
+      nodes.forEach(function(nd){var k=km.byKind[nd.kind],g=el('g',{class:'kb-graph-node kb-km-c'+((k?k.index:0)%6)+(nd.center?' kb-km-center':''),tabindex:'0',role:'listitem','aria-label':nd.label+(nd.sub?' '+nd.sub:'')});
+        g.appendChild(el('circle',{cx:nd.x,cy:nd.y,r:nd.r}));var tx=el('text',{x:nd.x,y:nd.y+nd.r+16,'text-anchor':'middle'},clip(nd.label,20));tx.appendChild(el('title',{},nd.label));g.appendChild(tx);
+        if(nd.sub)g.appendChild(el('text',{x:nd.x,y:nd.y+5,'text-anchor':'middle',class:'kb-km-count'},nd.sub));
+        if(focus.kind&&!focus.entity&&nd.id===focus.kind)g.setAttribute('data-selected','true');
+        function pick(){if(nd.entity){if(!nd.center)showEntity(nd.entity.id);}else{showKind(nd.id);}}
+        g.addEventListener('click',pick);g.addEventListener('keydown',function(ev){if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();pick();}});svg.appendChild(g);});
       lastGraph={nodes:nodes,edges:edges};
-      set('graph-nodes',String(nodes.length));set('graph-edges',String(edges.length));
-      document.getElementById('graph-view-empty').hidden=nodes.length!==0;
     }
-    function render(){renderTable();renderSchema();renderGraph();}
+    function renderSchema(){
+      var body=document.getElementById('schema-view-rows'),empty=document.getElementById('schema-view-empty');if(!body)return;body.textContent='';var attrs=0;
+      km.kinds.forEach(function(k){var tr=node('tr'),th=node('th');th.scope='row';var b=node('button','kb-km-link',k.name);b.type='button';b.addEventListener('click',function(){location.hash=prefix+'graph';showKind(k.name);});th.appendChild(b);tr.appendChild(th);
+        tr.appendChild(node('td','',String(k.entities.length)));
+        var at=node('td'),ul=node('ul','kb-km-attrs');k.attrOrder.forEach(function(a){attrs++;var li=node('li');li.appendChild(node('code','',a.name));
+          var ty=Object.keys(a.types).map(typeLabel).join('・'),tg=Object.keys(a.targets);li.appendChild(node('span','kb-footnote kb-mut',' '+ty+(tg.length?' → '+tg.join(', '):'')+' · '+Math.round(100*a.entities/k.entities.length)+'%'));li.title=a.full;ul.appendChild(li);});at.appendChild(ul);tr.appendChild(at);
+        var rel=node('td');k.relOrder.forEach(function(r){rel.appendChild(node('div','',r.attr+' → '+r.to+' ('+r.count+')'));});if(!k.relOrder.length)rel.textContent='—';tr.appendChild(rel);body.appendChild(tr);});
+      set('schema-attributes',String(attrs));set('schema-kinds',String(km.kinds.length));
+      if(empty)empty.hidden=km.kinds.length!==0;
+    }
+    function renderGraph(){renderKnowledge();}
+    function render(){buildModel();renderTable();renderSchema();renderGraph();}
     function load(source){
-      var panel=source.closest('[data-panel]'),db=panel.querySelector('[data-explore-db]').value.trim(),limit=parseInt(panel.querySelector('[data-explore-limit]').value,10)||25;
+      var panel=source.closest('[data-panel]'),db=panel.querySelector('[data-explore-db]').value.trim(),limit=parseInt(panel.querySelector('[data-explore-limit]').value,10)||500;
       if(!db){say(t('データベース名を入力してください。','Enter a database name.'),true);panel.querySelector('[data-explore-db]').focus();return;}
-      syncInputs(db,limit);lastDb=db;say(t('boundedなスナップショットを読み込んでいます…','Loading a bounded snapshot…'),false);each(document.querySelectorAll('[data-explore-load]'),function(b){b.disabled=true;});
+      syncInputs(db,limit);lastDb=db;say(t('読み込んでいます…','Loading…'),false);each(document.querySelectorAll('[data-explore-load]'),function(b){b.disabled=true;});
       xrpc('datomic.q',{db_name:db,query_edn:defaultQuery+limit+'}'}).then(function(d){
-        if(d&&d.ok===false)throw new Error(d.message||d.error||'query refused');var result=(d&&(d.rows||d.result))||d;rows=Array.isArray(result)?result:[];render();say(rows.length?t('スナップショットを読み込みました。テーブルとグラフは同じ行を表示しています。','Snapshot loaded. Table and graph show the same rows.'):t('クエリを実行しました。一致する行はありません。','Query ran. No rows matched.'),false);
+        if(d&&d.ok===false)throw new Error(d.message||d.error||'query refused');var result=(d&&(d.rows||d.result))||d;rows=Array.isArray(result)?result:[];render();say(rows.length?'':t('このデータベースにはまだ事実がありません。','This database has no facts yet.'),false);
       }).catch(function(e){rows=[];render();say(e.message==='unauthorized'?t('セッションの有効期限が切れました。データを見るには再度サインインしてください。','Your session expired. Sign in again to explore data.'):t('データを読み込めませんでした（'+((e&&e.message)||'error')+'）。','Could not load data ('+((e&&e.message)||'error')+').'),true);}).then(function(){each(document.querySelectorAll('[data-explore-load]'),function(b){b.disabled=false;});});
     }
     each(document.querySelectorAll('[data-explore-load]'),function(b){b.addEventListener('click',function(){load(b);});});
@@ -645,6 +737,23 @@ return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].remo
    ".kb-inline-action{min-height:2.75rem;padding:.4rem .7rem;border:1px solid var(--color-key-700);border-radius:.25rem;background:var(--color-neutral-white);color:var(--color-key-900);}\n"
    ".kb-confirm{border-inline-start:.25rem solid var(--color-semantic-error-1);padding:1rem;margin-block:1rem;background:var(--color-neutral-solid-gray-50);}\n"
    ".kb-onboarding li{margin-block:.75rem;}\n"
+   ".kb-km-summary{font-weight:600;margin-block:.75rem;}\n"
+   ".kb-km-kinds{display:grid;grid-template-columns:repeat(auto-fill,minmax(13rem,1fr));gap:.75rem;margin-block:.75rem 1.25rem;}\n"
+   ".kb-km-kind{display:grid;gap:.25rem;align-content:start;text-align:start;padding:.875rem 1rem;border:1px solid var(--color-neutral-solid-gray-200);border-inline-start:.35rem solid var(--km);border-radius:.5rem;background:var(--color-neutral-white);color:inherit;font:inherit;cursor:pointer;min-height:2.75rem;}\n"
+   ".kb-km-kind:hover{background:var(--color-neutral-solid-gray-50);}.kb-km-kind[aria-pressed=true]{outline:2px solid var(--color-key-700);outline-offset:1px;}\n"
+   ".kb-km-kind-name{font-size:1.0625rem;overflow-wrap:anywhere;}.kb-km-kind-count{font-variant-numeric:tabular-nums;font-weight:600;}\n"
+   ".kb-km-kind-attrs,.kb-km-kind-examples{font-size:.8125rem;color:var(--color-neutral-solid-gray-700);overflow-wrap:anywhere;}\n"
+   ".kb-km-c0{--km:var(--color-primitive-blue-600);--km-fill:var(--color-primitive-blue-100);}.kb-km-c1{--km:var(--color-primitive-green-600);--km-fill:var(--color-primitive-green-100);}.kb-km-c2{--km:var(--color-primitive-orange-600);--km-fill:var(--color-primitive-orange-100);}.kb-km-c3{--km:var(--color-primitive-purple-600);--km-fill:var(--color-primitive-purple-100);}.kb-km-c4{--km:var(--color-primitive-cyan-600);--km-fill:var(--color-primitive-cyan-100);}.kb-km-c5{--km:var(--color-primitive-magenta-600);--km-fill:var(--color-primitive-magenta-100);}\n"
+   ".kb-km-crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-block:.5rem;}.kb-km-sep{color:var(--color-neutral-solid-gray-600);}\n"
+   ".kb-km-link{padding:0;border:0;background:none;font:inherit;color:var(--color-key-900);text-decoration:underline;cursor:pointer;min-height:2rem;text-align:start;overflow-wrap:anywhere;}\n"
+   ".kb-km-layout{display:grid;gap:1rem;}.kb-km-map{min-width:0;}\n"
+   ".kb-km-list{list-style:none;padding:0;margin:0;max-height:24rem;overflow:auto;}.kb-km-list li{padding-block:.25rem;border-bottom:1px solid var(--color-neutral-solid-gray-100);}\n"
+   ".kb-km-facts{min-width:0;}.kb-km-facts th{width:35%;font-weight:600;}\n"
+   ".kb-km-attrs{list-style:none;padding:0;margin:0;}.kb-km-attrs li{padding-block:.125rem;}\n"
+   ".kb-graph-node.kb-km-c0 circle,.kb-graph-node.kb-km-c1 circle,.kb-graph-node.kb-km-c2 circle,.kb-graph-node.kb-km-c3 circle,.kb-graph-node.kb-km-c4 circle,.kb-graph-node.kb-km-c5 circle{fill:var(--km-fill);stroke:var(--km);stroke-width:2;}\n"
+   ".kb-km-center circle{stroke-width:4;}.kb-km-count{font-size:13px;font-weight:700;}.kb-km-arrow{fill:var(--color-neutral-solid-gray-500);}\n"
+   ".kb-graph-node{cursor:pointer;}\n"
+   "@media(min-width:64rem){.kb-km-layout{grid-template-columns:minmax(0,3fr) minmax(16rem,2fr);align-items:start;}}\n"
    ".kb-about{margin-block:1.5rem;padding:1rem;border:1px solid var(--color-neutral-solid-gray-200);border-radius:.5rem;}\n"
    ".kb-about summary{cursor:pointer;font-weight:600;padding-block:.625rem;}\n"
    ".kb-about li{margin-block:.5rem;}\n"
@@ -659,7 +768,7 @@ return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].remo
    ".kb-data-table th{position:sticky;top:0;background:var(--color-neutral-white);color:var(--color-neutral-solid-gray-900);z-index:1;}\n"
    ".kb-data-table th,.kb-data-table td{text-align:left;padding:.65rem;border-bottom:1px solid var(--color-neutral-solid-gray-200);max-width:30rem;overflow-wrap:anywhere;}\n"
    ".kb-graph-wrap{background:var(--color-neutral-white);color:var(--color-neutral-solid-gray-800);touch-action:pan-x pan-y;}\n"
-   ".kb-graph{display:block;width:100%;min-width:44rem;min-height:28rem;touch-action:none;cursor:grab;}\n"
+   ".kb-graph{display:block;width:100%;min-height:18rem;aspect-ratio:900/560;touch-action:none;cursor:grab;}\n"
    ".kb-graph:active{cursor:grabbing;}\n"
    ".kb-graph-edge{stroke:var(--color-neutral-solid-gray-400);stroke-width:1.5;}\n"
    ".kb-graph-edge-label,.kb-graph-node text{font-size:12px;fill:var(--color-neutral-solid-gray-800);paint-order:stroke;stroke:var(--color-neutral-white);stroke-width:3px;}\n"
@@ -795,9 +904,9 @@ return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].remo
     (dds/input-text {:id (str prefix "-db") :data-explore-db true :list "kb-db-options"
                      :autocomplete "off" :placeholder "agent-memory"}))
    (dds/form-field
-    {:label (t options "行数" "Rows") :for (str prefix "-limit")}
-    (dds/select {:id (str prefix "-limit") :attrs {:data-explore-limit true} :value "25"}
-                [["25" "25"] ["50" "50"] ["100" "100"]]))
+    {:label (t options "読み込む件数" "Facts to load") :for (str prefix "-limit")}
+    (dds/select {:id (str prefix "-limit") :attrs {:data-explore-limit true} :value "500"}
+                [["100" "100"] ["500" "500"] ["1000" "1000"]]))
    (dds/form-field
     {:label (t options "読み込んだ行を絞り込む" "Filter loaded rows") :for (str prefix "-filter")}
     (dds/input-text {:id (str prefix "-filter") :data-explore-filter true
@@ -881,71 +990,91 @@ return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].remo
                "Writes need an explicit capability from Keys & permissions, not just the sign-in session.")]]]])
 
 (defn graph-panel [options]
+  ;; 2026-09-25: the knowledge map. Before this the panel drew raw datoms —
+  ;; entity ids and values on one circle — which answered nothing about what
+  ;; the database knows. Now: the kinds of things it holds (with counts and
+  ;; readable examples), how kinds relate, one kind's members, and one
+  ;; thing's facts and neighbours. Ids and old controls keep their names.
   [:div {:id "graph" :data-panel true}
      (panel-auth-gate "graph" options)
-     (dds/section {:title (t options "グラフ · Beta" "Graph · Beta")}
+     (dds/section {:title (t options "ナレッジマップ" "Knowledge map")}
        (dds/card
-        [:p (t options "同じdatom snapshotをnodeとedgeに投影します。entityからvalueへattribute label付きのedgeを描画します。"
-                "Projects the same datom snapshot into nodes and edges. It draws edges with attribute labels from entity to value.")]
         (explore-controls options "graph-view")
         [:p {:data-explore-state true :class "kb-footnote" :data-bad "0" :aria-live "polite"}
-         (t options "Databaseを指定してグラフを読み込んでください。空のsnapshotではnodeは出ません。"
-                   "Specify a database to load the graph. An empty snapshot shows no nodes.")]
-        [:p [:strong (field "graph-nodes")] (t options " ノード · " " nodes · ")
-          [:strong (field "graph-edges")] (t options " エッジ" " edges")]
-        [:div {:class "kb-actions" :aria-label (t options "グラフ表示の操作" "Graph viewport controls")}
-         (dds/button (t options "拡大" "Zoom in") {:type :outline :attrs {:id "graph-zoom-in" :type "button"}})
-         (dds/button (t options "縮小" "Zoom out") {:type :outline :attrs {:id "graph-zoom-out" :type "button"}})
-         (dds/button (t options "表示をリセット" "Reset view") {:type :text :attrs {:id "graph-reset" :type "button"}})]
-        [:div {:class "kb-graph-wrap" :tabindex "0"
-            :aria-label (t options "グラフ表示。小画面ではスクロールして確認してください"
-                                  "Graph visualization; scroll to inspect on small screens")}
-         [:svg {:id "graph-view-svg" :class "kb-graph" :viewBox "0 0 900 560"
-                :role "list"
-                :aria-label (t options "Attributeで接続されたエンティティと値"
-                                      "Entities and values connected by attributes")}]]
+         (t options "データベースを選んで「読み込む」を押すと、何が入っているかがここに表示されます。"
+                   "Pick a database and Load to see what it holds.")]
+        [:p {:id "km-summary" :class "kb-km-summary" :aria-live "polite"}]
         [:p {:id "graph-view-empty" :hidden true}
-          (t options "表示できるnodeはありません。" "There are no nodes to display.")]
-        [:aside {:class "kb-node-inspector" :aria-label (t options "ノードインスペクタ" "Node inspector")}
-         (dds/heading 3 (t options "ノードインスペクタ" "Node inspector") {:size "20"})
-         [:p {:id "graph-selection" :class "kb-footnote" :aria-live "polite"}
-          (t options "ノードを選択して関係を確認できます。"
-                     "Select a node to inspect its relationships.")]
-         [:ul {:id "graph-selection-rows" :class "kb-graph-list"}]]
-        [:details
-         [:summary (t options "読み上げ対応の関係リスト" "Accessible relationship list")]
-         [:ul {:id "graph-view-list" :class "kb-graph-list"}]]
-        [:div {:class "kb-query-tools"}
-         (dds/form-field {:label (t options "レイアウト名" "Layout name") :for "layout-name"}
-                         (dds/input-text {:id "layout-name" :autocomplete "off" :placeholder "investigation-layout"}))
-         [:div {:class "kb-actions"}
-          (dds/button (t options "Layoutを保存" "Save the layout") {:type :outline :attrs {:id "layout-save" :type "button"}})
-          (dds/button (t options "Community分析" "Analyze communities") {:type :outline :attrs {:id "community-run" :type "button"}})]]
-        [:p {:id "layout-state" :class "kb-footnote" :data-bad "0" :aria-live "polite"} ""]
+         (t options "まだ表示できるものがありません。別のデータベースを選ぶか、読み込む件数を増やしてください。"
+                    "Nothing to show yet. Pick another database or load more facts.")]
+        [:div {:id "km-body" :hidden true}
+         (dds/heading 3 (t options "入っているものの種類" "Kinds of things") {:size "20"})
+         [:div {:id "km-kinds" :class "kb-km-kinds"}]
+         [:nav {:id "km-crumbs" :class "kb-km-crumbs" :aria-label (t options "表示中の範囲" "Current view")}]
+         [:div {:class "kb-km-layout"}
+          [:div {:class "kb-km-map"}
+           [:div {:class "kb-graph-wrap" :tabindex "0"
+                  :aria-label (t options "種類とつながりの図。ノードを選ぶと詳しく表示します"
+                                        "Map of kinds and connections; select a node for details")}
+            [:svg {:id "graph-view-svg" :class "kb-graph" :viewBox "0 0 900 560" :role "list"
+                   :aria-label (t options "種類とつながり" "Kinds and connections")}]]
+           [:div {:class "kb-actions" :aria-label (t options "図の表示操作" "Map viewport controls")}
+            (dds/button (t options "拡大" "Zoom in") {:type :text :size "sm" :attrs {:id "graph-zoom-in" :type "button"}})
+            (dds/button (t options "縮小" "Zoom out") {:type :text :size "sm" :attrs {:id "graph-zoom-out" :type "button"}})
+            (dds/button (t options "元に戻す" "Reset") {:type :text :size "sm" :attrs {:id "graph-reset" :type "button"}})]]
+          [:aside {:class "kb-node-inspector" :aria-label (t options "選択中のもの" "Selection")}
+           (dds/heading 3 [:span {:id "graph-selection" :aria-live "polite"}
+                           (t options "種類かノードを選ぶと、そのものの内容とつながりが表示されます。"
+                              "Pick a kind or a node to see what it holds and how it connects.")] {:size "20"})
+           [:div {:id "km-list-wrap" :hidden true}
+            [:p {:id "km-list-title" :class "kb-footnote kb-mut"}]
+            [:ul {:id "km-list" :class "kb-km-list"}]]
+           [:div {:id "km-entity" :hidden true :tabindex "-1"}
+            [:p {:id "km-entity-kind" :class "kb-footnote kb-mut"}]
+            [:table {:class "kb-data-table kb-km-facts"}
+             [:thead [:tr [:th {:scope "col"} (t options "項目" "Field")] [:th {:scope "col"} (t options "値" "Value")]]]
+             [:tbody {:id "graph-selection-rows"}]]
+            [:div {:id "km-incoming-wrap" :hidden true}
+             [:p {:class "kb-footnote kb-mut"} (t options "これを参照しているもの" "Referenced by")]
+             [:ul {:id "km-incoming" :class "kb-km-list"}]]]]]]
         [:p {:class "kb-footnote kb-mut"}
-         (t options "large graph virtualizationはbounded window方式です。最大40 nodes / 80 edgesを表示し、pan/zoom、keyboard node selection、loaded windowのconnected-component分析、IPLD layout保存に対応。全graph community解析ではありません。"
-                   "Large graph virtualization uses a bounded window. It shows at most 40 nodes / 80 edges, with pan/zoom, keyboard node selection, connected-component analysis of the loaded window, and IPLD layout saving. This is not whole-graph community analysis.")]))])
+         [:strong (field "graph-nodes")] (t options " 件のもの · " " things · ")
+         [:strong (field "graph-edges")] (t options " 件のつながり。種類は属性の名前空間（例: " " connections. Kinds come from the attribute namespace (e.g. ")
+         [:code ":paper/title"] (t options " → paper）、名前は name / title などの属性から推定しています。"
+                                  " → paper); names come from attributes such as name or title.")]
+        [:details {:class "kb-about"}
+         [:summary (t options "詳しいツール" "More tools")]
+         [:details
+          [:summary (t options "読み上げ用のつながり一覧" "Accessible connection list")]
+          [:ul {:id "graph-view-list" :class "kb-graph-list"}]]
+         [:div {:class "kb-query-tools"}
+          (dds/form-field {:label (t options "レイアウト名" "Layout name") :for "layout-name"}
+                          (dds/input-text {:id "layout-name" :autocomplete "off" :placeholder "investigation-layout"}))
+          [:div {:class "kb-actions"}
+           (dds/button (t options "レイアウトを保存" "Save the layout") {:type :outline :attrs {:id "layout-save" :type "button"}})
+           (dds/button (t options "まとまりを数える" "Count clusters") {:type :outline :attrs {:id "community-run" :type "button"}})]]
+         [:p {:id "layout-state" :class "kb-footnote" :data-bad "0" :aria-live "polite"} ""]]))])
 
 (defn ontology-panel [options]
   [:div {:id "ontology" :data-panel true}
      (panel-auth-gate "ontology" options)
-     (dds/section {:title (t options "オントロジー / Schema · 推定" "Ontology / Schema · inferred")}
+     (dds/section {:title (t options "オントロジー（推定）" "Ontology (inferred)")}
        (dds/card
-        [:p (t options "読み込んだsnapshotからattribute、出現数、observed value typeを推定します。宣言オントロジーや全datasetの保証ではありません。"
-                "Infers attributes, occurrence counts, and observed value types from the loaded snapshot. It is not a declared ontology or a guarantee about the full dataset.")]
+        [:p (t options "読み込んだ事実から、どんな種類のものが、どんな項目を持ち、何とつながっているかをまとめます。宣言されたスキーマではありません。"
+                "What kinds of things the loaded facts describe, the fields each kind has, and what they link to. Inferred, not a declared schema.")]
         (explore-controls options "schema-view")
         [:p {:data-explore-state true :class "kb-footnote" :data-bad "0" :aria-live "polite"}
-         (t options "Databaseを指定してdatom snapshotを読み込むと、推定attributeが出ます。"
-                   "Load a datom snapshot with a database specified and inferred attributes appear.")]
-        [:p [:strong (field "schema-attributes")] (t options " 件のattribute" " attributes")]
+         (t options "データベースを選んで「読み込む」を押してください。" "Pick a database and Load.")]
+        [:p [:strong (field "schema-kinds")] (t options " 種類 · " " kinds · ")
+         [:strong (field "schema-attributes")] (t options " 項目" " fields")]
         [:p {:id "schema-view-empty"}
-          (t options "まだ推定できるattributeはありません。読み込んだdatomからの観察であり、宣言オントロジーではありません。"
-                     "No attributes can be inferred yet. These are observations from the loaded datoms, not a declared ontology.")]
-        [:div {:class "kb-table-wrap" :tabindex "0" :aria-label (t options "推定スキーマのテーブル" "Inferred schema table")}
+          (t options "まだ推定できるものはありません。" "Nothing to infer yet.")]
+        [:div {:class "kb-table-wrap" :tabindex "0" :aria-label (t options "推定オントロジー" "Inferred ontology")}
          [:table {:class "kb-data-table kb-schema-table"}
-          [:thead [:tr [:th {:scope "col"} "Attribute"]
-            [:th {:scope "col"} (t options "観察件数" "Observed count")]
-            [:th {:scope "col"} (t options "観察型" "Observed types")]]]
+          [:thead [:tr [:th {:scope "col"} (t options "種類" "Kind")]
+            [:th {:scope "col"} (t options "件数" "Count")]
+            [:th {:scope "col"} (t options "項目（型 · 持っている割合）" "Fields (type · share that have it)")]
+            [:th {:scope "col"} (t options "つながり" "Links")]]]
           [:tbody {:id "schema-view-rows"}]]]))
      (dds/section {:title (t options "スキーママイグレーション / DDL · Controlled Beta"
                              "Schema migration / DDL · Controlled Beta")}
