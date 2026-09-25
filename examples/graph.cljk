@@ -12,7 +12,7 @@
     var body=null;
     if(path.endsWith('.usageGet'))body={tier:'OFFLINE FIXTURE',tenantDid:'did:example:fixture'};
     else if(path.endsWith('.datomic.listDatabases'))body={databases:[{db_name:'fixture-db',status:'active',kind:'user'}]};
-    else if(path.endsWith('.datomic.q')||path.endsWith('.kg.query'))body={rows:[[1,':asset/name','example-server'],[1,':asset/owner',2],[2,':owner/name','example-owner']]};
+    else if(path.endsWith('.datomic.q')||path.endsWith('.kg.query'))body={rows:[[10, ':person/name', '川崎 淳'], [10, ':person/affiliation', 20], [11, ':person/name', '佐藤 花子'], [11, ':person/affiliation', 21], [12, ':person/name', 'Alice Chen'], [12, ':person/affiliation', 22], [20, ':org/name', 'Kotoba Labs'], [21, ':org/name', '東京大学'], [22, ':org/name', 'MIT'], [30, ':topic/label', 'グラフデータベース'], [31, ':topic/label', 'オントロジー'], [32, ':topic/label', 'コンテンツアドレス'], [1, ':paper/title', 'データム設計の実践'], [1, ':paper/year', 2025], [1, ':paper/author', 10], [1, ':paper/author', 11], [1, ':paper/topic', 30], [1, ':paper/topic', 31], [2, ':paper/title', 'CID で考える永続化'], [2, ':paper/year', 2026], [2, ':paper/author', 10], [2, ':paper/topic', 32], [3, ':paper/title', '推定オントロジーの可視化'], [3, ':paper/year', 2026], [3, ':paper/author', 11], [3, ':paper/author', 12], [3, ':paper/topic', 31], [4, ':paper/title', 'Graph UX for knowledge bases'], [4, ':paper/year', 2024], [4, ':paper/author', 12], [4, ':paper/topic', 30], [2, ':paper/cid', 'bafyreigh2akiscaildcqabsyg3dfr6chu3fgpregiymsck7e7aqa4s52zy']]};
     else if(path.endsWith('.savedQuery.list'))body={saved_queries:[]};
     else if(path.indexOf('/pins?')===0)body={results:[]};
     else if(path.indexOf('/v1/audit?')===0)body={data:[]};
@@ -26,6 +26,6 @@ document.querySelectorAll('[data-explore-db],#q-db').forEach(function(input){inp
                :dark? true :app-css (str tokens/bridge-css graph/page-css)}
     (graph/view {:header [:aside {:role "note" :style "grid-column:1/-1"}
                          [:strong "OFFLINE FIXTURE — テスト用データのみ"]
-                         [:p "実際の認証・保存・課金は行いません。Databaseはfixture-dbです。グラフまたはクエリの読み込みを試してください。"]]})
+                         [:p "実際の認証・保存・課金は行いません。fixture-db は論文・人・組織・トピックの小さなナレッジベースです。"]]})
     [:script graph/script]
     [:script fixture-script]))

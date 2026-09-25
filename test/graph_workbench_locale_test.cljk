@@ -56,4 +56,19 @@
   (is (str/includes? (pr-str (graph/view {})) "kb-lead"))
   (is (not (str/includes? (pr-str (graph/view {:intro? false})) "kb-lead"))))
 
+(deftest graph-panel-is-a-knowledge-map
+  ;; 2026-09-25: the graph panel answers "what does this database know" —
+  ;; kinds with counts and examples, a kind map, one kind's members, one
+  ;; thing's facts — instead of raw datoms on a circle.
+  (let [ja (pr-str (graph/view {:locale :ja})) en (pr-str (graph/view {:locale :en}))]
+    (doseq [id ["km-summary" "km-kinds" "km-crumbs" "km-list" "km-entity" "km-incoming" "graph-view-svg" "graph-selection-rows"]]
+      (is (str/includes? ja (str ":id \"" id "\"")) id))
+    (is (str/includes? ja "ナレッジマップ"))
+    (is (str/includes? en "Knowledge map"))
+    (is (str/includes? ja ":value \"500\"") "the default window is large enough to see kinds"))
+  (doseq [fn-name ["function buildModel()" "function drawMap()" "function showEntity(" "function renderSchema()"]]
+    (is (str/includes? graph/browser-source fn-name) fn-name))
+  (is (str/includes? graph/browser-source "function render(){buildModel();")
+      "every view renders from the same model"))
+
 (run-tests 'graph-workbench-locale-test)
