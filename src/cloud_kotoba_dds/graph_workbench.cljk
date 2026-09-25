@@ -294,7 +294,13 @@ window.cloudKotobaGraph={mount:function(root,host){
         confirmButton=document.getElementById('db-tombstone-run'),cancelButton=document.getElementById('db-tombstone-cancel'),selected='';
     if(!body)return;
     function dbState(msg,bad){stateEl.textContent=msg||'';stateEl.setAttribute('data-bad',bad?'1':'0');}
-    function useDatabase(name){var fields=document.querySelectorAll('[data-explore-db],#q-db');for(var i=0;i<fields.length;i++)fields[i].value=name;location.hash=prefix+'datoms';}
+    function useDatabase(name){var fields=document.querySelectorAll('[data-explore-db],#q-db');for(var i=0;i<fields.length;i++)fields[i].value=name;location.hash=prefix+'datoms';var loadButton=document.querySelector('#datoms [data-explore-load]');if(loadButton)setTimeout(function(){loadButton.click();},0);}
+    // The catalog is the pick-list for every database field (datalist), and
+    // an empty field starts on the first usable database, so a panel opened
+    // from the nav is ready to load without typing a handle.
+    function offer(databases){var list=document.getElementById('kb-db-options');if(!list)return;list.textContent='';var usable=databases.filter(function(db){return db.kind!=='system'&&db.status!=='tombstoned'&&db.db_name;});
+      usable.forEach(function(db){var o=document.createElement('option');o.value=db.db_name;list.appendChild(o);});
+      if(usable.length){var fields=document.querySelectorAll('[data-explore-db],#q-db');for(var i=0;i<fields.length;i++)if(!fields[i].value)fields[i].value=usable[0].db_name;}}
     function action(label,kind,handler){var b=document.createElement('button');b.type='button';b.className='kb-inline-action';b.textContent=label;b.setAttribute('data-kind',kind);b.addEventListener('click',handler);return b;}
     function render(databases){
       body.textContent='';for(var i=0;i<databases.length;i++){(function(db){var tr=document.createElement('tr');
@@ -305,16 +311,17 @@ window.cloudKotobaGraph={mount:function(root,host){
         var actions=document.createElement('td');actions.className='kb-row-actions';
         if(db.kind==='system'){var note=document.createElement('span');note.className='kb-footnote';note.textContent=t('カタログのみ','Catalog only');note.title=t('system catalogの項目はtenantのクエリ用databaseではありません。','System catalog entries are not tenant query databases.');actions.appendChild(note);}
         else if(db.status!=='tombstoned')actions.appendChild(action(t('開く','Explore'),'use',function(){useDatabase(db.db_name);}));
-        if(db.kind!=='system'&&db.status!=='tombstoned')actions.appendChild(action(t('Tombstone化','Tombstone'),'tombstone',function(){selected=db.db_name;document.getElementById('db-tombstone-target').textContent=selected;confirmInput.value='';confirmButton.disabled=true;confirmBox.hidden=false;confirmInput.focus();}));
+        if(db.kind!=='system'&&db.status!=='tombstoned')actions.appendChild(action(t('アーカイブ','Archive'),'tombstone',function(){selected=db.db_name;document.getElementById('db-tombstone-target').textContent=selected;confirmInput.value='';confirmButton.disabled=true;confirmBox.hidden=false;confirmInput.focus();}));
         if(db.kind!=='system'&&db.status==='tombstoned')actions.appendChild(action(t('復元','Restore'),'restore',function(){dbState(t('データベースを復元中…','Restoring database…'),false);xrpc('datomic.restoreDatabase',{db_name:db.db_name}).then(load).catch(function(e){dbState(t('データベースを復元できません（'+e.message+'）。','Could not restore database ('+e.message+').'),true);});}));
         tr.appendChild(actions);body.appendChild(tr);})(databases[i]);}
-      set('database-count',String(databases.length));
+      set('database-count',String(databases.length));offer(databases);
+      var empty=document.getElementById('db-list-empty');if(empty)empty.hidden=databases.length!==0;
     }
-    function load(){dbState(t('データベースを読み込んでいます…','Loading databases…'),false);return xrpc('datomic.listDatabases',{}).then(function(d){render((d&&d.databases)||[]);dbState(t('カタログをtenant分離のIPLD documentから読み込みました。','Catalog loaded from tenant-isolated IPLD documents.'),false);}).catch(function(e){dbState(t('データベースカタログを読み込めませんでした（'+e.message+'）。','Could not load database catalog ('+e.message+').'),true);});}
-    createButton.addEventListener('click',function(){var name=createInput.value.trim();if(!name){dbState(t('データベース名を入力してください。','Enter a database name.'),true);createInput.focus();return;}createButton.disabled=true;dbState(t('データベースhandleを作成しています…','Creating database handle…'),false);xrpc('datomic.createDatabase',{db_name:name}).then(function(){createInput.value='';return load();}).catch(function(e){dbState(t('データベースを作成できません（'+e.message+'）。','Could not create database ('+e.message+').'),true);}).then(function(){createButton.disabled=false;});});
+    function load(){dbState(t('データベースを読み込んでいます…','Loading databases…'),false);return xrpc('datomic.listDatabases',{}).then(function(d){render((d&&d.databases)||[]);dbState('',false);}).catch(function(e){dbState(t('データベースカタログを読み込めませんでした（'+e.message+'）。','Could not load database catalog ('+e.message+').'),true);});}
+    createButton.addEventListener('click',function(){var name=createInput.value.trim();if(!name){dbState(t('データベース名を入力してください。','Enter a database name.'),true);createInput.focus();return;}createButton.disabled=true;dbState(t('データベースを作成しています…','Creating database…'),false);xrpc('datomic.createDatabase',{db_name:name}).then(function(){createInput.value='';return load();}).catch(function(e){dbState(t('データベースを作成できません（'+e.message+'）。','Could not create database ('+e.message+').'),true);}).then(function(){createButton.disabled=false;});});
     confirmInput.addEventListener('input',function(){confirmButton.disabled=confirmInput.value!==selected;});
     cancelButton.addEventListener('click',function(){confirmBox.hidden=true;confirmButton.disabled=true;selected='';});
-    confirmButton.addEventListener('click',function(){if(!selected||confirmInput.value!==selected)return;confirmButton.disabled=true;dbState(t('Tombstoneを記録しています…','Recording tombstone…'),false);xrpc('datomic.deleteDatabase',{db_name:selected}).then(function(){confirmBox.hidden=true;selected='';return load();}).catch(function(e){dbState(t('Tombstoneを記録できません（'+e.message+'）。','Could not record tombstone ('+e.message+').'),true);}).then(function(){confirmButton.disabled=false;});});
+    confirmButton.addEventListener('click',function(){if(!selected||confirmInput.value!==selected)return;confirmButton.disabled=true;dbState(t('アーカイブしています…','Archiving…'),false);xrpc('datomic.deleteDatabase',{db_name:selected}).then(function(){confirmBox.hidden=true;selected='';return load();}).catch(function(e){dbState(t('アーカイブできません（'+e.message+'）。','Could not archive ('+e.message+').'),true);}).then(function(){confirmButton.disabled=false;});});
     load();
   })();
 
@@ -339,15 +346,15 @@ window.cloudKotobaGraph={mount:function(root,host){
     function renderTable(){
       var body=document.getElementById('table-view-rows'), empty=document.getElementById('table-view-empty');if(!body)return;
       body.textContent='';var shown=filtered();empty.hidden=shown.length!==0;
-      for(var i=0;i<shown.length;i++){var t=triple(shown[i]),tr=document.createElement('tr');
-        for(var j=0;j<3;j++){var td=document.createElement('td'),cell=value(t[j]);if(typeof t[j]==='string'&&/^b[a-z2-7]{30,}$/.test(t[j])){var link=document.createElement('a');link.href=host.blockHref?host.blockHref(t[j]):('/ipld/'+encodeURIComponent(t[j]));link.textContent=cell;td.appendChild(link);}else{td.textContent=cell;}tr.appendChild(td);}body.appendChild(tr);
+      for(var i=0;i<shown.length;i++){var tri=triple(shown[i]),tr=document.createElement('tr');
+        for(var j=0;j<3;j++){var td=document.createElement('td'),cell=value(tri[j]);if(typeof tri[j]==='string'&&/^b[a-z2-7]{30,}$/.test(tri[j])){var link=document.createElement('a');link.href=host.blockHref?host.blockHref(tri[j]):('/ipld/'+encodeURIComponent(tri[j]));link.textContent=cell;td.appendChild(link);}else{td.textContent=cell;}tr.appendChild(td);}body.appendChild(tr);
       }
       set('table-visible',String(shown.length));set('table-total',String(rows.length));
       var exportButton=document.getElementById('table-export');if(exportButton)exportButton.disabled=shown.length===0;
     }
     function renderSchema(){
       var body=document.getElementById('schema-view-rows'),empty=document.getElementById('schema-view-empty');if(!body)return;body.textContent='';var attrs=Object.create(null),shown=filtered();
-      for(var i=0;i<shown.length;i++){var t=triple(shown[i]),a=value(t[1]),v=t[2],type=v===null?'null':(Array.isArray(v)?'array':typeof v);if(!attrs[a])attrs[a]={count:0,types:Object.create(null)};attrs[a].count++;attrs[a].types[type]=true;}
+      for(var i=0;i<shown.length;i++){var tri=triple(shown[i]),a=value(tri[1]),v=tri[2],type=v===null?'null':(Array.isArray(v)?'array':typeof v);if(!attrs[a])attrs[a]={count:0,types:Object.create(null)};attrs[a].count++;attrs[a].types[type]=true;}
       var names=Object.keys(attrs).sort();for(var j=0;j<names.length;j++){var tr=document.createElement('tr'),cells=[names[j],attrs[names[j]].count,Object.keys(attrs[names[j]].types).sort().join(', ')];for(var k=0;k<cells.length;k++){var td=document.createElement(k===0?'th':'td');if(k===0)td.scope='row';td.textContent=String(cells[k]);tr.appendChild(td);}body.appendChild(tr);}set('schema-attributes',String(names.length));
       if(empty)empty.hidden=names.length!==0;
     }
@@ -357,7 +364,7 @@ window.cloudKotobaGraph={mount:function(root,host){
       document.getElementById('graph-selection').textContent=t('ノードを選択して関係を確認できます。','Select a node to inspect its relationships.');document.getElementById('graph-selection-rows').textContent='';
       var shown=filtered(), nodes=[], nodeMap=Object.create(null), edges=[];
       function node(raw,kind){var id=value(raw);if(!nodeMap[id]&&nodes.length<40){nodeMap[id]={id:id,kind:kind,index:nodes.length};nodes.push(nodeMap[id]);}return nodeMap[id];}
-      for(var i=0;i<shown.length&&edges.length<80;i++){var t=triple(shown[i]),from=node(t[0],'entity'),to=node(t[2],'value');if(from&&to)edges.push({from:from,to:to,label:value(t[1])});}
+      for(var i=0;i<shown.length&&edges.length<80;i++){var tri=triple(shown[i]),from=node(tri[0],'entity'),to=node(tri[2],'value');if(from&&to)edges.push({from:from,to:to,label:value(tri[1])});}
       var NS='http://www.w3.org/2000/svg',cx=450,cy=270,rx=350,ry=205;
       function el(name,attrs,txt){var x=document.createElementNS(NS,name);for(var k in attrs)x.setAttribute(k,attrs[k]);if(txt!==undefined)x.textContent=txt;return x;}
       for(var n=0;n<nodes.length;n++){var angle=(Math.PI*2*n/Math.max(nodes.length,1))-Math.PI/2;nodes[n].x=cx+Math.cos(angle)*rx;nodes[n].y=cy+Math.sin(angle)*ry;}
@@ -638,6 +645,11 @@ return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].remo
    ".kb-inline-action{min-height:2.75rem;padding:.4rem .7rem;border:1px solid var(--color-key-700);border-radius:.25rem;background:var(--color-neutral-white);color:var(--color-key-900);}\n"
    ".kb-confirm{border-inline-start:.25rem solid var(--color-semantic-error-1);padding:1rem;margin-block:1rem;background:var(--color-neutral-solid-gray-50);}\n"
    ".kb-onboarding li{margin-block:.75rem;}\n"
+   ".kb-about{margin-block:1.5rem;padding:1rem;border:1px solid var(--color-neutral-solid-gray-200);border-radius:.5rem;}\n"
+   ".kb-about summary{cursor:pointer;font-weight:600;min-height:2.75rem;display:flex;align-items:center;}\n"
+   ".kb-about li{margin-block:.5rem;}\n"
+   ".kb-workbench-header:not(:has(.dads-heading)){padding-block:0 .75rem;}\n"
+   "@media(min-width:48rem){.kb-explore-controls.kb-db-create{grid-template-columns:minmax(14rem,24rem) auto;justify-content:start;}}\n"
    ".kb-explore-controls{display:grid;gap:.75rem;align-items:end;margin-bottom:1rem;}\n"
    ".kb-table-wrap,.kb-graph-wrap{overflow:auto;border:1px solid var(--color-neutral-solid-gray-200);border-radius:.5rem;}\n"
    ".kb-data-table{width:100%;min-width:42rem;border-collapse:collapse;}\n"
@@ -774,9 +786,9 @@ return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].remo
   [:div {:class "kb-explore-controls"}
    (dds/form-field
     {:label (t options "データベース" "Database") :for (str prefix "-db")
-     :support (t options "tenant内のdatabase handle。read-only。"
-                 "A database handle within the tenant. Read-only.")}
-    (dds/input-text {:id (str prefix "-db") :data-explore-db true
+     :support (t options "一覧から選ぶか名前を入力。読み取りのみ。"
+                 "Pick from the list or type a name. Read-only.")}
+    (dds/input-text {:id (str prefix "-db") :data-explore-db true :list "kb-db-options"
                      :autocomplete "off" :placeholder "agent-memory"}))
    (dds/form-field
     {:label (t options "行数" "Rows") :for (str prefix "-limit")}
@@ -790,83 +802,79 @@ return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].remo
                             :attrs {:type "button" :data-explore-load true}})])
 
 (defn overview-panel [options]
+  ;; 2026-09-25 (kotoba-uiux, task-first): the database list is the task, so
+  ;; it comes first and carries the one create action. Usage metrics follow;
+  ;; how the store works (CID, archive keeps history, observed ontology,
+  ;; writes need a capability) is one disclosure instead of two cards and a
+  ;; three-step list that sat between the heading and the databases.
   [:div {:id "overview" :data-panel true}
      (panel-auth-gate "overview" options)
-     ;; Metric region: hidden / aria-hidden while :not-signed-in so data-field
-     ;; tiles never present bare "—" as live values before a tenant session.
-     [:div {:data-overview-metrics true :aria-hidden "true"}
-      (dds/section {:title (t options "概要" "Overview")}
-        (dds/grid {}
-          (stat-card (t options "プラン" "Plan") (field "tier")
-                     (t options "現在のtenant entitlement。" "Current tenant entitlement."))
-          (stat-card "Pins"
-                     [:span (field "used-pins") " / " (field "quota-pins")]
-                     (t options "残り " "Remaining ") (field "remaining-pins") (t options "。" "."))
-          (stat-card "Storage"
-                     [:span (field "used-bytes") " / " (field "quota-bytes")]
-                     (t options "残り " "Remaining ") (field "remaining-bytes") (t options "。" "."))))
-      (dds/section {:title "Pin health"}
-        (dds/grid {}
-          (stat-card "Pinned" (field "pinned") (t options "永続化済み。" "Persisted."))
-          (stat-card "Pinning" (field "pinning")
-                     (t options "処理待ちまたは処理中。" "Queued or in progress."))
-          (stat-card "Failed" (field "failed")
-                     (t options "0以外なら確認が必要です。" "Anything other than 0 needs attention."))))]
-     (dds/section {}
-       (dds/card
-        (dds/heading 2 (t options "コンテンツアドレステッドGraphDB" "Content addressed GraphDB") {:size "24"})
-        [:p (t options "表示名は操作用aliasです。保存されたblock、commit、query artifactの正本はCIDで識別されます。"
-                "Display names are operational aliases. The canonical copy of a stored block, commit or query artifact is identified by its CID.")]
-        [:a {:href "#pins" :data-tab true} (t options "Pins / CIDを見る →" "See Pins / CID →")]))
-     (dds/section {:title (t options "最初の3 steps" "First 3 steps")}
-       (dds/card
-        [:ol {:class "kb-onboarding"}
-         [:li [:a {:href "#overview" :data-tab true} (t options "Databaseを作成または選択" "Create or select a database")]
-          (t options "します。system databaseは常に利用できます。"
-                     ". System databases are always available.")]
-         [:li [:a {:href "#ontology" :data-tab true} (t options "オントロジー" "Ontology")]
-          (t options "で、読み込んだsnapshotからattributeとobserved typeを確認します。これは宣言オントロジーではありません。"
-                     " — review attributes and observed types from the loaded snapshot. This is not a declared ontology.")]
-         [:li [:a {:href "#query" :data-tab true} (t options "クエリワークベンチ" "Query workbench")]
-          (t options "でbounded readを実行し、必要ならqueryを端末に保存します。"
-                     " — run bounded reads, and save queries on this device when you need them.")]]
-        [:p {:class "kb-footnote kb-mut"} (t options "Writeはsession cookieだけでは実行せず、Keys / 認可で明示的なBiscuit capabilityを要求します。"
-                   "Writes never run on the session cookie alone; Keys & permissions require an explicit Biscuit capability.")]))
      (dds/section {:title (t options "データベース" "Databases")}
        (dds/card
-        [:p (t options "tenantのdatabase catalogです。user databaseはIPLD documentとして保存され、削除操作はhistoryを消さないtombstoneです。"
-                "This is the tenant's database catalog. User databases are stored as IPLD documents, and the removal operation is a tombstone — it never erases history.")]
-        [:div {:class "kb-explore-controls"}
+        [:div {:class "kb-explore-controls kb-db-create"}
          (dds/form-field
           {:label (t options "新しいデータベース" "New database") :for "db-create-name"
-           :support (t options "英数字、hyphenなどの短いhandleを推奨します。"
-                              "A short handle of alphanumerics and hyphens is recommended.")}
+           :support (t options "英数字とハイフンの短い名前（例: agent-memory）。"
+                              "A short name of letters, digits and hyphens (e.g. agent-memory).")}
           (dds/input-text {:id "db-create-name" :autocomplete "off" :placeholder "agent-memory"}))
-         (dds/button (t options "Databaseを作成" "Create database")
+         (dds/button (t options "作成" "Create")
                    {:type :solid-fill :attrs {:id "db-create" :type "button"}})]
         [:p {:id "db-state" :class "kb-footnote" :data-bad "0" :aria-live "polite"} ""]
-        [:p [:strong (field "database-count")] (t options " データベース" " databases")]
-        [:div {:class "kb-table-wrap" :tabindex "0" :aria-label (t options "データベースカタログ。小画面では横にスクロールしてください"
-                              "Database catalog; scroll horizontally on small screens")}
+        [:p {:class "kb-footnote kb-mut"} [:strong (field "database-count")] (t options " 件" " databases")]
+        [:div {:class "kb-table-wrap" :tabindex "0" :aria-label (t options "データベース一覧。小画面では横にスクロールしてください"
+                              "Databases; scroll horizontally on small screens")}
          [:table {:class "kb-db-table"}
-          [:thead [:tr [:th {:scope "col"} (t options "データベース" "Database")]
+          [:thead [:tr [:th {:scope "col"} (t options "名前" "Name")]
             [:th {:scope "col"} (t options "種別" "Kind")]
             [:th {:scope "col"} (t options "状態" "Status")]
-            [:th {:scope "col"} "Graph CID"]
+            [:th {:scope "col"} "CID"]
             [:th {:scope "col"} (t options "操作" "Actions")]]]
           [:tbody {:id "db-list-rows"}]]]
+        [:p {:id "db-list-empty" :class "kb-footnote kb-mut" :hidden true}
+         (t options "まだデータベースがありません。上で名前を入れて作成してください。"
+                    "No databases yet. Enter a name above to create one.")]
         [:div {:id "db-tombstone-confirm" :class "kb-confirm" :hidden true}
-         (dds/heading 3 (t options "Tombstoneを確認" "Confirm the tombstone") {:size "20"})
-         [:p (t options "これはhistoryを消しません。database "
-                "This does not erase history. It records database ")
+         (dds/heading 3 (t options "アーカイブの確認" "Confirm archive") {:size "20"})
+         [:p (t options "履歴は消えません。データベース "
+                "History is kept. Database ")
              [:strong {:id "db-tombstone-target"} ""]
-             (t options " を非activeとして記録します。続行するにはdatabase名を入力してください。"
-                        " as non-active. Type the database name to continue.")]
+             (t options " を非アクティブにします（後で復元できます）。続けるにはデータベース名を入力してください。"
+                        " becomes inactive (you can restore it later). Type the database name to continue.")]
          (dds/form-field {:label (t options "データベース名" "Database name") :for "db-tombstone-name"}
                          (dds/input-text {:id "db-tombstone-name" :autocomplete "off"}))
          [:div {:class "kb-actions"}
-          (dds/button (t options "Tombstoneを記録" "Record the tombstone") {:type :outline :attrs {:id "db-tombstone-run" :type "button" :disabled true}})
-          (dds/button (t options "キャンセル" "Cancel") {:type :text :attrs {:id "db-tombstone-cancel" :type "button"}})]]))])
+          (dds/button (t options "アーカイブ" "Archive") {:type :outline :attrs {:id "db-tombstone-run" :type "button" :disabled true}})
+          (dds/button (t options "キャンセル" "Cancel") {:type :text :attrs {:id "db-tombstone-cancel" :type "button"}})]]))
+     ;; Metric region: hidden / aria-hidden while :not-signed-in so data-field
+     ;; tiles never present bare "—" as live values before a tenant session.
+     [:div {:data-overview-metrics true :aria-hidden "true"}
+      (dds/section {:title (t options "使用状況" "Usage")}
+        (dds/grid {}
+          (stat-card (t options "プラン" "Plan") (field "tier")
+                     (t options "このワークスペースの契約。" "This workspace's plan."))
+          (stat-card (t options "保存（Pin）" "Pins")
+                     [:span (field "used-pins") " / " (field "quota-pins")]
+                     (t options "残り " "Remaining ") (field "remaining-pins") (t options "。" "."))
+          (stat-card (t options "容量" "Storage")
+                     [:span (field "used-bytes") " / " (field "quota-bytes")]
+                     (t options "残り " "Remaining ") (field "remaining-bytes") (t options "。" "."))
+          (stat-card (t options "保存済み" "Pinned") (field "pinned") (t options "永続化済み。" "Persisted."))
+          (stat-card (t options "保存中" "Pinning") (field "pinning")
+                     (t options "処理待ちまたは処理中。" "Queued or in progress."))
+          (stat-card (t options "失敗" "Failed") (field "failed")
+                     (t options "0 以外なら確認が必要です。" "Anything other than 0 needs attention."))))]
+     [:details {:class "kb-about"}
+      [:summary (t options "このデータベースの仕組み" "How this database works")]
+      [:ul
+       [:li (t options "データはコンテンツアドレス（CID）で保存されます。名前は操作用の別名で、正本は CID です。"
+               "Data is stored content-addressed. Names are working aliases; the CID is the canonical copy.")
+        " " [:a {:href "#pins" :data-tab true} (t options "Pins / CID を見る" "See Pins / CID")]]
+       [:li (t options "アーカイブは履歴を消しません。いつでも復元できます。"
+               "Archiving never erases history; a database can be restored.")]
+       [:li (t options "オントロジーは読み込んだデータから観測した属性と型です（宣言されたスキーマではありません）。"
+               "The ontology is the attributes and types observed in loaded data, not a declared schema.")]
+       [:li (t options "書き込みにはログインだけでなく、Keys / 認可で発行する明示的な権限が必要です。"
+               "Writes need an explicit capability from Keys & permissions, not just the sign-in session.")]]]])
 
 (defn graph-panel [options]
   [:div {:id "graph" :data-panel true}
@@ -987,7 +995,7 @@ return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].remo
           {:label (t options "データベース" "Database") :for "q-db"
            :support (t options "tenant内のdatabase handle。例: agent-memory"
                               "A database handle within the tenant. Example: agent-memory")}
-          (dds/input-text {:id "q-db" :name "q-db" :autocomplete "off" :placeholder "agent-memory"}))
+          (dds/input-text {:id "q-db" :name "q-db" :list "kb-db-options" :autocomplete "off" :placeholder "agent-memory"}))
          (dds/form-field
           {:label (t options "言語" "Language") :for "q-lang"}
           (dds/select {:id "q-lang" :name "q-lang" :value "datalog"}
@@ -1151,17 +1159,22 @@ return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].remo
 
 (defn view
   ([] (view {}))
-  ([{:keys [header footer title heading-level] :as options}]
+  ;; :intro? false (2026-09-25) — a host whose page heading already names the
+  ;; workbench drops the workbench's own heading and lead (one fact, one home);
+  ;; the tenant line and load state stay.
+  ([{:keys [header footer title heading-level intro?] :or {intro? true} :as options}]
   [:div {:class "dds-ext-container kb-console"}
    [:a {:class "kb-skip" :href "#console-main"}
     (t options "管理画面の本文へ移動" "Skip to the console body")]
    ;; The Worker serves this document only after resolving a viewer.
    header
    [:header {:class "kb-workbench-header"}
-    (dds/heading (or heading-level 1) (or title (t options "GraphDBワークベンチ" "GraphDB workbench")) {:size "28"})
-    [:p {:class "kb-lead"}
-    (t options "グラフデータベースとオントロジーを、同じテナントのbounded snapshotで調べます。"
-               "Inspect the graph database and ontology through bounded snapshots of one tenant.")]
+    (when intro?
+      (dds/heading (or heading-level 1) (or title (t options "GraphDBワークベンチ" "GraphDB workbench")) {:size "28"}))
+    (when intro?
+      [:p {:class "kb-lead"}
+       (t options "データベースを選び、グラフ・表・クエリで中身を調べます。"
+                  "Pick a database, then explore it as a graph, a table or a query.")])
     [:p {:class "kb-footnote kb-mut kb-identity"}
     (t options "テナント " "Tenant ") (field "tenant")]
     [:p {:id "load-state" :class "kb-footnote" :data-bad "0" :aria-live "polite"} ""]]
@@ -1174,6 +1187,7 @@ return {dispose:function(){disposed=true;listeners.forEach(function(x){x[0].remo
               panels))
 
    [:main {:id "console-main" :class "kb-console-main" :tabindex "-1"}
+    [:datalist {:id "kb-db-options"}]
     (overview-panel options)
 
     (graph-panel options)

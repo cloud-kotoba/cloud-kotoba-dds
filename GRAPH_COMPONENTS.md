@@ -15,7 +15,12 @@ independently; the browser controller currently requires the complete `view`.
 Use one active workbench per document; host it in an existing SPA view.
 
 `options` accepts host-owned `header`, `footer`, `title`, `heading-level`,
-`benchmark`, `billing`, and `maturity` Hiccup slots. Billing, readiness claims,
+`benchmark`, `billing`, and `maturity` Hiccup slots.
+`:intro? false` drops the workbench heading and lead for a host whose page
+heading already names it (one fact, one home); the tenant line stays.
+The overview leads with the database list; every database field offers the
+catalog as a `datalist` (`#kb-db-options`) and starts on the first usable
+database, and a row's Open loads the table directly. Billing, readiness claims,
 account headers, telemetry, and login policy are not library defaults.
 Include the DADS stylesheet, token bridge and exported `page-css`.
 

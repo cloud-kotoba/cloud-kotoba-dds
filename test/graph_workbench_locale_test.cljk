@@ -34,4 +34,26 @@
   (is (str/includes? graph/script "function t(ja,en)"))
   (is (str/includes? graph/browser-source "root.getAttribute('lang')")))
 
+(deftest runtime-translator-is-never-shadowed
+  ;; 2026-09-25: renderGraph declared `var t=triple(...)` in its loop; `var`
+  ;; hoists, so its first t('ノードを選択…') call threw "t is not a function"
+  ;; and every data load stayed on "loading…" with no rows. Pin the name.
+  (is (not (re-find #"var t=|,t=triple|var t =" graph/browser-source))
+      "no local `t` may shadow the runtime translator")
+  (is (str/includes? graph/browser-source "var tri=triple(")))
+
+(deftest overview-leads-with-the-databases
+  (let [h (pr-str (graph/overview-panel {:locale :ja}))]
+    (is (< (str/index-of h "db-list-rows") (str/index-of h ":data-overview-metrics"))
+        "the database list comes before usage metrics")
+    (is (not (str/includes? h "最初の3 steps")))
+    (is (not (str/includes? h "Content addressed GraphDB")) "how-it-works is one disclosure, not a card"))
+  (let [v (pr-str (graph/view {}))]
+    (is (str/includes? v ":datalist {:id \"kb-db-options\"}"))
+    (is (str/includes? v ":list \"kb-db-options\""))))
+
+(deftest intro-false-drops-the-workbench-heading
+  (is (str/includes? (pr-str (graph/view {})) "kb-lead"))
+  (is (not (str/includes? (pr-str (graph/view {:intro? false})) "kb-lead"))))
+
 (run-tests 'graph-workbench-locale-test)
