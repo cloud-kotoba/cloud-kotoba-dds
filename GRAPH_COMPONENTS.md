@@ -20,7 +20,19 @@ Use one active workbench per document; host it in an existing SPA view.
 heading already names it (one fact, one home); the tenant line stays.
 The overview leads with the database list; every database field offers the
 catalog as a `datalist` (`#kb-db-options`) and starts on the first usable
-database, and a row's Open loads the table directly. Billing, readiness claims,
+database, and a row's Open loads the knowledge map directly.
+
+The graph panel is a knowledge map (2026-09-25). One read of the chosen
+window (100 / 500 / 1000 facts, default 500) builds one model that every view
+renders from: kinds of things (from the attribute namespace, e.g.
+`:paper/title` → `paper`), each thing named by a name-like attribute
+(`name`, `title`, `label`, …), and links wherever a value is another loaded
+thing. The map shows kind cards (count, fields, examples), a kind graph
+(`paper —author→ person`), one kind's members, and one thing's facts and
+neighbours in both directions. The ontology panel is the same model as a
+table (fields with type and coverage, links per kind); the datom table names
+entities and linked values. All of it is inferred from the loaded window and
+the panels say so. Billing, readiness claims,
 account headers, telemetry, and login policy are not library defaults.
 Include the DADS stylesheet, token bridge and exported `page-css`.
 
