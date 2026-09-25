@@ -2706,7 +2706,7 @@ body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inse
 .kb-km-link{padding:0;border:0;background:none;font:inherit;color:var(--color-key-900);text-decoration:underline;cursor:pointer;min-height:2rem;text-align:start;overflow-wrap:anywhere;}
 .kb-km-layout{display:grid;gap:1rem;}.kb-km-map{min-width:0;}
 .kb-km-list{list-style:none;padding:0;margin:0;max-height:24rem;overflow:auto;}.kb-km-list li{padding-block:.25rem;border-bottom:1px solid var(--color-neutral-solid-gray-100);}
-.kb-data-table.kb-km-facts{min-width:0;}.kb-km-facts th{width:35%;font-weight:600;}.kb-km-facts td{overflow-wrap:anywhere;}.kb-graph .kb-graph-node text{font-size:calc(17px * var(--km-s,1));stroke-width:calc(3px * var(--km-s,1));}.kb-graph .kb-graph-edge-label{font-size:calc(14px * var(--km-s,1));stroke-width:calc(3px * var(--km-s,1));}.kb-graph .kb-km-count{font-size:calc(16px * var(--km-s,1));font-weight:700;}
+.kb-data-table.kb-km-facts{min-width:0;}.kb-km-facts th{width:35%;font-weight:600;}.kb-km-facts td{overflow-wrap:anywhere;}.kb-graph .kb-graph-node text{font-size:calc(14px * var(--km-s,1));stroke-width:calc(3px * var(--km-s,1));}.kb-graph .kb-graph-edge-label{font-size:calc(12px * var(--km-s,1));stroke-width:calc(3px * var(--km-s,1));}.kb-graph .kb-km-count{font-size:calc(13px * var(--km-s,1));font-weight:700;}
 .kb-km-attrs code,.kb-km-summary code,.kb-console .kb-footnote code{font-family:var(--hig-font-mono,ui-monospace,SFMono-Regular,Menlo,monospace);font-size:.875rem;}.kb-km-attrs{list-style:none;padding:0;margin:0;}.kb-km-attrs li{padding-block:.125rem;}
 .kb-graph-node.kb-km-c0 circle,.kb-graph-node.kb-km-c1 circle,.kb-graph-node.kb-km-c2 circle,.kb-graph-node.kb-km-c3 circle,.kb-graph-node.kb-km-c4 circle,.kb-graph-node.kb-km-c5 circle{fill:var(--km-fill);stroke:var(--km);stroke-width:2;}
 .kb-km-center circle{stroke-width:4;}.kb-km-count{font-size:13px;font-weight:700;}.kb-km-arrow{fill:var(--color-neutral-solid-gray-500);}
@@ -3770,7 +3770,8 @@ if(d&&d.ok===false)throw new Error(d.message||d.error||'query refused');var resu
 each(document.querySelectorAll('[data-explore-load]'),function(b){b.addEventListener('click',function(){load(b);});});
 each(filters,function(f){f.addEventListener('input',function(){var v=f.value;each(filters,function(other){other.value=v;});render();});});
 var graphSvg=document.getElementById('graph-view-svg'),drag=null;
-function applyGraphView(){graphSvg.setAttribute('viewBox',graphView.join(' '));graphSvg.style.setProperty('--km-s',String(graphView[2]/900));}
+function applyGraphView(){graphSvg.setAttribute('viewBox',graphView.join(' '));var w=graphSvg.getBoundingClientRect().width;if(!w)return;graphSvg.style.setProperty('--km-s',String(graphView[2]/w));}
+if(typeof ResizeObserver==='function')new ResizeObserver(function(){applyGraphView();}).observe(graphSvg);else window.addEventListener('resize',function(){applyGraphView();});
 function zoom(factor){var nw=graphView[2]*factor,nh=graphView[3]*factor;graphView[0]+=(graphView[2]-nw)/2;graphView[1]+=(graphView[3]-nh)/2;graphView[2]=nw;graphView[3]=nh;applyGraphView();}
 document.getElementById('graph-zoom-in').addEventListener('click',function(){zoom(.8);});document.getElementById('graph-zoom-out').addEventListener('click',function(){zoom(1.25);});document.getElementById('graph-reset').addEventListener('click',function(){graphView=[0,0,900,560];applyGraphView();});
 graphSvg.addEventListener('pointerdown',function(e){if(e.target.closest('.kb-graph-node'))return;drag={x:e.clientX,y:e.clientY,v:graphView.slice()};graphSvg.setPointerCapture(e.pointerId);});
