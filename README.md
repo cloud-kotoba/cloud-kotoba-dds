@@ -75,7 +75,7 @@ marker です。kotoba.cloud/docs が最初の host です。
 
 バージョンは **0.2.0-study**。共通設計・操作契約・見本のリポジトリです。直感性を優先する表示ルールはMurakumoで適用されていますが、この見本全体は配布可能な製品用コンポーネントライブラリではありません。router、認証、永続会話、生成・課金の各adapterは今後の実装範囲です。
 
-`source/design-preview.cljs`がHTML生成、`source/preview.css`と`source/interaction.css`がスタイル、`source/interaction.cljs`が見本の操作を所有します。生成にはjp-go-dds、html、css、textとkbbが必要です。generatorには出力ディレクトリとjp-go-dds checkoutの絶対パスを順に渡します。browser adapterはSquint 0.14.208とesbuild 0.28.2で`assets/interaction.js`に生成されたものを同梱しています。
+`source/design-preview.cljk`がHTML生成、`source/preview.css`と`source/interaction.css`がスタイル、`source/interaction.cljk`が見本の操作を所有します。生成にはjp-go-dds、html、css、textとkbbが必要です。generatorには出力ディレクトリとjp-go-dds checkoutの絶対パスを順に渡します。browser adapterはSquint 0.14.208とesbuild 0.28.2で`assets/interaction.js`に生成されたものを同梱しています。
 
 [以前の見本の検証記録](verification.md)は実施時点の記録です。現在の全製品への適用・実機動作を保証するものではありません。
 
