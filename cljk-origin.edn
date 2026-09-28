@@ -1,23 +1,7 @@
 {:format :kotoba.cljk-origin/v1
- :renamed-on "2026-09-13"
- :decision "adr-2609111500-cljk-rename-all-clojure-source (com-junkawasaki/root 90-docs/adr; manifest missing at cutover — added when cloud-kotoba-dds.chat joined the murakumo site generator classpath, kbb-first 2026-09-13)"
+ :renamed-on "2026-09-11"
+ :decision "adr-2609111500-cljk-rename-all-clojure-source (com-junkawasaki/root 90-docs/adr; owner instruction 2026-09-11)"
  :rule "value = the extension the file had before the rename. A path ending in .clj.cljk or .cljs.cljk kept it in the name because both platform files existed (or the plain target was taken)."
  :origins
- {"src/cloud_kotoba_dds/browser.cljk" ".cljc"
-  "src/cloud_kotoba_dds/chat.cljk" ".cljc"
-  "src/cloud_kotoba_dds/bot.cljk" ".cljc"
-  "src/cloud_kotoba_dds/graph_workbench.cljk" ".cljc"
-  "src/cloud_kotoba_dds/catalog.cljk" ".cljc"
-  "src/cloud_kotoba_dds/console.cljk" ".cljc"
-  "src/cloud_kotoba_dds/styles.cljk" ".cljc"
-  "src/cloud_kotoba_dds/shell.cljk" ".cljc"
-  "src/cloud_kotoba_dds/code.cljk" ".cljc"
-  "src/cloud_kotoba_dds/bots.cljk" ".cljc"
-  "src/cloud_kotoba_dds/switch.cljk" ".cljc"
-  "src/cloud_kotoba_dds/tokens.cljk" ".cljc"
-  "src/cloud_kotoba_dds/menu.cljk" ".cljc"
-  "src/cloud_kotoba_dds/status.cljk" ".cljc"
-  "src/cloud_kotoba_dds/sheet.cljk" ".cljc"
-  "src/cloud_kotoba_dds/theme.cljk" ".cljc"
-  "src/cloud_kotoba_dds/composer.cljk" ".cljc"
-  "src/cloud_kotoba_dds/thread.cljk" ".cljc"}}
+ {"source/design-preview.cljk" ".cljs"
+  "source/interaction.cljk" ".cljs"}}
